@@ -2,7 +2,8 @@
 
 param (
     [string]$Command,
-    [string]$Service
+    [string]$Service,
+    [string]$Stage
 )
 
 # Compose file to use
@@ -218,6 +219,7 @@ function Show-Help {
     Write-Host "  check       Verify prerequisites (Docker, ports, compose)" -ForegroundColor White
     Write-Host "  health      Probe http://localhost:8000/health and :3000" -ForegroundColor White
     Write-Host "  db-check    Verify PostgreSQL connectivity (port, pg_isready, SELECT 1)" -ForegroundColor White
+    Write-Host "  stage       Run a predefined validation stage (env/auth/rewards-games/product/hardening/observability/backlog)" -ForegroundColor White
     Write-Host "  help        Show this help" -ForegroundColor White
     Write-Host "" 
     Write-Host "Examples:" -ForegroundColor Cyan
@@ -226,6 +228,72 @@ function Show-Help {
     Write-Host "  ./cc-manage.ps1 db-check" -ForegroundColor White
     Write-Host "  ./cc-manage.ps1 logs backend" -ForegroundColor White
     Write-Host "  ./cc-manage.ps1 shell postgres" -ForegroundColor White
+    Write-Host "  ./cc-manage.ps1 stage env" -ForegroundColor White
+    Write-Host "  ./cc-manage.ps1 stage -Stage rewards-games" -ForegroundColor White
+}
+
+# Helper: run a command inside backend with working directory set to /app
+function Run-Backend {
+    param([string]$Cmd)
+    Detect-Compose
+    $composeArgs = Get-ComposeArgs
+    Compose @composeArgs exec backend /bin/sh -lc "cd /app && $Cmd"
+}
+
+# Stage runners
+function Run-Stage {
+    param([string]$StageName)
+    if (-not $StageName) {
+        Write-Host "Usage: ./cc-manage.ps1 stage <env|auth|rewards-games|product|hardening|observability|backlog>" -ForegroundColor Yellow
+        exit 1
+    }
+    switch ($StageName) {
+        "env" {
+            Write-Host "[Stage0] Environment & Basics" -ForegroundColor Cyan
+            Check-Prerequisites
+            Start-Environment
+            Check-Health
+            Write-Host "→ Alembic heads/upgrade, OpenAPI export" -ForegroundColor Yellow
+            Run-Backend "alembic heads && alembic upgrade head || exit 1"
+            Run-Backend "python -m app.export_openapi || true"
+            return
+        }
+        "auth" {
+            Write-Host "[Stage1] Auth/User validation (markers: e2e_auth | fallback: auth)" -ForegroundColor Cyan
+            Run-Backend "pytest -q -m e2e_auth || pytest -q -m auth"
+            return
+        }
+        "rewards-games" {
+            Write-Host "[Stage2] Rewards/Games validation (markers: e2e_rewards_games | fallback: game or mvp)" -ForegroundColor Cyan
+            Run-Backend "pytest -q -m e2e_rewards_games || pytest -q -m game || pytest -q -m mvp"
+            return
+        }
+        "product" {
+            Write-Host "[Stage3] Product closure (Battlepass Free, Events/Missions, FE contracts)" -ForegroundColor Cyan
+            Run-Backend "pytest -q -m e2e_product || pytest -q -m integration"
+            return
+        }
+        "hardening" {
+            Write-Host "[Stage4] Production hardening (perf/security basics)" -ForegroundColor Cyan
+            # Placeholder: add perf test hooks when available
+            Run-Backend "pytest -q -m e2e_ops || true"
+            return
+        }
+        "observability" {
+            Write-Host "[Stage5] Observability (logs/dashboards hooks)" -ForegroundColor Cyan
+            Run-Backend "pytest -q -m e2e_obs || true"
+            return
+        }
+        "backlog" {
+            Write-Host "[Stage6] Backlog/Deferred features" -ForegroundColor Cyan
+            Run-Backend "pytest -q -m e2e_backlog || true"
+            return
+        }
+        default {
+            Write-Host "Unknown stage: $StageName" -ForegroundColor Red
+            exit 1
+        }
+    }
 }
 
 # Main script execution
@@ -238,6 +306,12 @@ switch ($Command) {
     "check" { Check-Prerequisites }
     "health" { Check-Health }
     "db-check" { Check-DBConnection }
+    "stage" { 
+        $stageName = $null
+        if ($Stage) { $stageName = $Stage }
+        elseif ($Service) { $stageName = $Service } # allow positional form: ./cc-manage.ps1 stage env
+        Run-Stage -StageName $stageName 
+    }
     "help" { Show-Help }
     default { Show-Help }
 }
