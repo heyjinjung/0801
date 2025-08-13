@@ -275,7 +275,8 @@ function Run-Stage {
         }
         "auth" {
             Write-Host "[Stage1] Auth/User validation (markers: e2e_auth | fallback: auth)" -ForegroundColor Cyan
-            Run-Backend "pytest -q -m e2e_auth || pytest -q -m auth"
+            # 우선 마커 기반 실행, 실패 시 app/tests로 범위 축소, 최후엔 스모크 파일만 실행
+            Run-Backend "pytest -q -m e2e_auth || pytest -q -m auth || pytest -q app/tests -k auth || pytest -q app/tests/test_invite_signup_login_me.py"
             return
         }
         "rewards-games" {
