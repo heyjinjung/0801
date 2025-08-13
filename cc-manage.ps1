@@ -82,6 +82,21 @@ function Start-Environment {
     }
 }
 
+# Minimal start without Kafka/Zookeeper (to avoid port 2181 conflicts)
+function Start-Environment-Minimal {
+    Detect-Compose
+    Write-Host "Starting minimal environment (postgres, redis, backend, frontend) without Kafka/ZooKeeper..." -ForegroundColor Cyan
+    $composeArgs = Get-ComposeArgs
+    # Start DB and cache first
+    Compose @composeArgs up -d --build postgres redis
+    if ($LASTEXITCODE -ne 0) { Write-Host "Failed to start postgres/redis" -ForegroundColor Red; exit $LASTEXITCODE }
+    # Start app containers without bringing dependent services (avoid kafka)
+    Compose @composeArgs up -d --no-deps --build backend frontend
+    if ($LASTEXITCODE -ne 0) { Write-Host "Failed to start backend/frontend" -ForegroundColor Red; exit $LASTEXITCODE }
+    Write-Host "Minimal environment started!" -ForegroundColor Green
+    Show-Status
+}
+
 function Stop-Environment {
     Detect-Compose
     Write-Host "Stopping Casino-Club F2P environment..." -ForegroundColor Cyan
@@ -251,7 +266,7 @@ function Run-Stage {
         "env" {
             Write-Host "[Stage0] Environment & Basics" -ForegroundColor Cyan
             Check-Prerequisites
-            Start-Environment
+            Start-Environment-Minimal
             Check-Health
             Write-Host "→ Alembic heads/upgrade, OpenAPI export" -ForegroundColor Yellow
             Run-Backend "alembic heads && alembic upgrade head || exit 1"
