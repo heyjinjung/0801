@@ -14,6 +14,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.engine.reflection import Inspector
 
 
 # revision identifiers, used by Alembic.
@@ -23,19 +24,29 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _has_column(insp: Inspector, table: str, col: str) -> bool:
+    try:
+        return col in {c['name'] for c in insp.get_columns(table)}
+    except Exception:
+        return False
+
 def upgrade() -> None:
-    """Add vip_points column to users table."""
-    # Add vip_points column with default value
-    op.add_column('users', sa.Column('vip_points', sa.Integer(), nullable=False, server_default='0'))
-    
-    # Explicit backfill (redundant but safe)
-    connection = op.get_bind()
-    connection.execute(sa.text("UPDATE users SET vip_points = 0 WHERE vip_points IS NULL"))
-    
-    print("✅ Added vip_points column to users table")
+    """Add vip_points column to users table (idempotent)."""
+    conn = op.get_bind()
+    insp = Inspector.from_engine(conn)  # type: ignore
+
+    if not _has_column(insp, 'users', 'vip_points'):
+        op.add_column('users', sa.Column('vip_points', sa.Integer(), nullable=False, server_default='0'))
+        conn.execute(sa.text("UPDATE users SET vip_points = 0 WHERE vip_points IS NULL"))
+        # drop server_default to avoid future diffs
+        with op.batch_alter_table('users') as batch:
+            batch.alter_column('vip_points', server_default=None)
+    # else: already present → no-op
 
 
 def downgrade() -> None:
     """Remove vip_points column from users table."""
-    op.drop_column('users', 'vip_points')
-    print("✅ Dropped vip_points column from users table")
+    try:
+        op.drop_column('users', 'vip_points')
+    except Exception:
+        pass

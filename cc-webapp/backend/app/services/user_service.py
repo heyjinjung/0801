@@ -8,8 +8,9 @@
 """
 
 from sqlalchemy.orm import Session
+from sqlalchemy import func, cast, Date
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 from types import SimpleNamespace
 
@@ -84,6 +85,8 @@ class UserService:
         - total_tokens_spent: game_stats.total_bet 합계 (없으면 0)
         - win_rate: total_wins / total_games (game_stats 기준; 분모 0이면 0.0)
         - level/experience: user의 battlepass_level/total_experience 사용(기본값)
+    - last_30d_active_days: 최근 30일 distinct 활동일 수 (UTC 기준)
+    - lifetime_active_days: 평생 distinct 활동일 수 (UTC 기준)
         """
         try:
             user = self.get_user(user_id)
@@ -94,7 +97,9 @@ class UserService:
                     total_tokens_spent=0,
                     win_rate=0.0,
                     level=1,
-                    experience=0,
+            experience=0,
+            last_30d_active_days=0,
+            lifetime_active_days=0,
                 )
 
             # UserAction 기반 플레이 수
@@ -115,6 +120,64 @@ class UserService:
             level = getattr(user, "battlepass_level", 1) or 1
             experience = getattr(user, "total_experience", 0) or 0
 
+            # --- Active days (UserAction distinct date, UTC day boundary) ---
+            # Dialect-aware distinct day expression
+            try:
+                dialect = getattr(self.db.bind.dialect, 'name', '') if hasattr(self.db, 'bind') else ''
+            except Exception:
+                dialect = ''
+            if dialect == 'postgresql':
+                distinct_day_expr = func.date_trunc('day', models.UserAction.created_at)
+            elif dialect == 'sqlite':
+                # SQLite: date(TIMESTAMP) returns 'YYYY-MM-DD'
+                distinct_day_expr = func.date(models.UserAction.created_at)
+            else:
+                # Generic fallback
+                distinct_day_expr = cast(models.UserAction.created_at, Date)
+
+            # last 30d window
+            cutoff_30d = datetime.utcnow() - timedelta(days=30)
+            # Distinct dates in last 30 days (primary: UserAction)
+            last_30d_active_days_ua = (
+                self.db.query(func.count(func.distinct(distinct_day_expr)))
+                .filter(models.UserAction.user_id == user_id)
+                .filter(models.UserAction.created_at >= cutoff_30d)
+                .scalar()
+            ) or 0
+            # Lifetime distinct days (primary: UserAction)
+            lifetime_active_days_ua = (
+                self.db.query(func.count(func.distinct(distinct_day_expr)))
+                .filter(models.UserAction.user_id == user_id)
+                .scalar()
+            ) or 0
+
+            # Fallback: use GameHistory if available and UA is zero
+            try:
+                from app.models.history_models import GameHistory  # type: ignore
+                if dialect == 'postgresql':
+                    gh_day_expr = func.date_trunc('day', GameHistory.created_at)
+                elif dialect == 'sqlite':
+                    gh_day_expr = func.date(GameHistory.created_at)
+                else:
+                    gh_day_expr = cast(GameHistory.created_at, Date)
+                last_30d_active_days_gh = (
+                    self.db.query(func.count(func.distinct(gh_day_expr)))
+                    .filter(GameHistory.user_id == user_id)
+                    .filter(GameHistory.created_at >= cutoff_30d)
+                    .scalar()
+                ) or 0
+                lifetime_active_days_gh = (
+                    self.db.query(func.count(func.distinct(gh_day_expr)))
+                    .filter(GameHistory.user_id == user_id)
+                    .scalar()
+                ) or 0
+            except Exception:
+                last_30d_active_days_gh = 0
+                lifetime_active_days_gh = 0
+
+            last_30d_active_days = int(max(last_30d_active_days_ua, last_30d_active_days_gh))
+            lifetime_active_days = int(max(lifetime_active_days_ua, lifetime_active_days_gh))
+
             return SimpleNamespace(
                 total_games_played=total_games_played,
                 total_tokens_earned=int(total_won),
@@ -122,6 +185,8 @@ class UserService:
                 win_rate=round(win_rate, 4),
                 level=int(level),
                 experience=int(experience),
+                last_30d_active_days=int(last_30d_active_days),
+                lifetime_active_days=int(lifetime_active_days),
             )
         except Exception as e:
             logger.error(f"Error getting user stats: {e}")
@@ -132,6 +197,8 @@ class UserService:
                 win_rate=0.0,
                 level=1,
                 experience=0,
+                last_30d_active_days=0,
+                lifetime_active_days=0,
             )
 
     def update_last_login(self, user_id: int) -> bool:

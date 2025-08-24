@@ -14,7 +14,7 @@
         ],
         "summary": "Register user (temporary minimal endpoint)",
         "description": "Lightweight register endpoint added for interim E2E tests.\nUses AuthService.register_with_invite_code if available; falls back to legacy user creation otherwise.",
-        "operationId": "minimal_register_api_auth_register_post",
+        "operationId": "post_api_auth_register",
         "requestBody": {
           "content": {
             "application/json": {
@@ -56,7 +56,7 @@
           "Authentication"
         ],
         "summary": "Get current user profile (temporary minimal endpoint)",
-        "operationId": "minimal_profile_api_auth_profile_get",
+        "operationId": "get_api_auth_profile",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -84,7 +84,7 @@
         ],
         "summary": "Debug Token",
         "description": "DEV: Return basic info about the provided bearer token (no verification).",
-        "operationId": "debug_token_api_auth_debug_token_get",
+        "operationId": "get_api_auth_debug_token",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -110,7 +110,7 @@
         ],
         "summary": "Debug Decode",
         "description": "DEV: Decode JWT header/payload without signature verification for debugging.",
-        "operationId": "debug_decode_api_auth_debug_decode_get",
+        "operationId": "get_api_auth_debug_decode",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -136,7 +136,7 @@
         ],
         "summary": "Debug Signature",
         "description": "DEV: Verify HS256 signature manually using current SECRET_KEY.",
-        "operationId": "debug_signature_api_auth_debug_sig_get",
+        "operationId": "get_api_auth_debug_sig",
         "security": [
           {
             "HTTPBearer": []
@@ -190,7 +190,7 @@
         ],
         "summary": "Debug Make Token",
         "description": "DEV: Create a token for the first user and return it along with secret length.",
-        "operationId": "debug_make_token_api_auth_debug_make_get",
+        "operationId": "get_api_auth_debug_make",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -211,7 +211,7 @@
         ],
         "summary": "Debug Signature Guess",
         "description": "DEV: Try signature verification with multiple candidate secrets to find a match.",
-        "operationId": "debug_signature_guess_api_auth_debug_sig_guess_get",
+        "operationId": "get_api_auth_debug_sig-guess",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -237,7 +237,7 @@
         ],
         "summary": "Debug Verify",
         "description": "DEV: Attempt full verify_token and return result or error details.",
-        "operationId": "debug_verify_api_auth_debug_verify_get",
+        "operationId": "get_api_auth_debug_verify",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -262,7 +262,7 @@
           "Authentication"
         ],
         "summary": "Signup",
-        "operationId": "signup_api_auth_signup_post",
+        "operationId": "post_api_auth_signup",
         "requestBody": {
           "content": {
             "application/json": {
@@ -304,7 +304,7 @@
           "Authentication"
         ],
         "summary": "Login",
-        "operationId": "login_api_auth_login_post",
+        "operationId": "post_api_auth_login",
         "requestBody": {
           "content": {
             "application/json": {
@@ -346,7 +346,7 @@
           "Authentication"
         ],
         "summary": "Admin Login",
-        "operationId": "admin_login_api_auth_admin_login_post",
+        "operationId": "post_api_auth_admin_login",
         "requestBody": {
           "content": {
             "application/json": {
@@ -388,14 +388,14 @@
           "Authentication"
         ],
         "summary": "Refresh",
-        "operationId": "refresh_api_auth_refresh_post",
+        "operationId": "post_api_auth_refresh",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
                 "allOf": [
                   {
-                    "$ref": "#/components/schemas/Body_refresh_api_auth_refresh_post"
+                    "$ref": "#/components/schemas/Body_post_api_auth_refresh"
                   }
                 ],
                 "title": "Body"
@@ -439,7 +439,7 @@
           "Authentication"
         ],
         "summary": "Logout",
-        "operationId": "logout_api_auth_logout_post",
+        "operationId": "post_api_auth_logout",
         "requestBody": {
           "content": {
             "application/json": {
@@ -491,7 +491,7 @@
           "Authentication"
         ],
         "summary": "Logout All",
-        "operationId": "logout_all_api_auth_logout_all_post",
+        "operationId": "post_api_auth_logout-all",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -517,7 +517,7 @@
         ],
         "summary": "Me",
         "description": "Alias to current user profile for clients expecting /api/auth/me.",
-        "operationId": "me_api_auth_me_get",
+        "operationId": "get_api_auth_me",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -544,7 +544,7 @@
         ],
         "summary": "Get Profile",
         "description": "현재 로그인한 사용자 프로필 조회",
-        "operationId": "get_profile_api_users_profile_get",
+        "operationId": "get_api_users_profile",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -569,7 +569,7 @@
         ],
         "summary": "Update User Profile",
         "description": "Update user profile",
-        "operationId": "update_user_profile_api_users_profile_put",
+        "operationId": "put_api_users_profile",
         "requestBody": {
           "content": {
             "application/json": {
@@ -616,7 +616,7 @@
         ],
         "summary": "Get User Balance",
         "description": "사용자 잔액 조회",
-        "operationId": "get_user_balance_api_users_balance_get",
+        "operationId": "get_api_users_balance",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -641,7 +641,7 @@
         ],
         "summary": "Get User Info",
         "description": "사용자 상세 정보 조회",
-        "operationId": "get_user_info_api_users_info_get",
+        "operationId": "get_api_users_info",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -666,7 +666,7 @@
         ],
         "summary": "Get User Stats",
         "description": "Get user statistics",
-        "operationId": "get_user_stats_api_users_stats_get",
+        "operationId": "get_api_users_stats",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -693,7 +693,7 @@
         ],
         "summary": "Add Tokens",
         "description": "Add tokens to user account (admin or special purposes)",
-        "operationId": "add_tokens_api_users_tokens_add_post",
+        "operationId": "post_api_users_tokens_add",
         "security": [
           {
             "HTTPBearer": []
@@ -739,7 +739,7 @@
         ],
         "summary": "Get User",
         "description": "특정 사용자 정보 조회 (본인=전체, 타인=제한적 정보)",
-        "operationId": "get_user_api_users__user_id__get",
+        "operationId": "get_api_users_user_id",
         "security": [
           {
             "HTTPBearer": []
@@ -770,7 +770,7 @@
                       "$ref": "#/components/schemas/PublicUserResponse"
                     }
                   ],
-                  "title": "Response Get User Api Users  User Id  Get"
+                  "title": "Response Get Api Users User Id"
                 }
               }
             }
@@ -794,7 +794,7 @@
           "Admin"
         ],
         "summary": "Admin Email Trigger",
-        "operationId": "admin_email_trigger_api_admin_email_trigger_post",
+        "operationId": "post_api_admin_email_trigger",
         "requestBody": {
           "content": {
             "application/json": {
@@ -838,7 +838,7 @@
           "Admin"
         ],
         "summary": "Admin List Users",
-        "operationId": "admin_list_users_api_admin_users_get",
+        "operationId": "get_api_admin_users",
         "security": [
           {
             "HTTPBearer": []
@@ -892,7 +892,7 @@
                   "items": {
                     "$ref": "#/components/schemas/UserSummary"
                   },
-                  "title": "Response Admin List Users Api Admin Users Get"
+                  "title": "Response Get Api Admin Users"
                 }
               }
             }
@@ -916,7 +916,7 @@
           "Admin"
         ],
         "summary": "Admin User Detail",
-        "operationId": "admin_user_detail_api_admin_users__user_id__get",
+        "operationId": "get_api_admin_users_user_id",
         "security": [
           {
             "HTTPBearer": []
@@ -962,7 +962,7 @@
         ],
         "summary": "Admin Update User",
         "description": "Update core user admin fields (admin only).\n\nThis endpoint exists to satisfy tests expecting PUT /api/admin/users/{id}\nto control is_admin/is_active/user_rank with proper permission checks.",
-        "operationId": "admin_update_user_api_admin_users__user_id__put",
+        "operationId": "put_api_admin_users_user_id",
         "security": [
           {
             "HTTPBearer": []
@@ -1015,7 +1015,7 @@
           "Admin"
         ],
         "summary": "Admin Delete User",
-        "operationId": "admin_delete_user_api_admin_users__user_id__delete",
+        "operationId": "delete_api_admin_users_user_id",
         "security": [
           {
             "HTTPBearer": []
@@ -1061,7 +1061,7 @@
         ],
         "summary": "Dev Elevate User",
         "description": "Dev-only: elevate a user by site_id to admin without auth.\n\nThis is used only in tests to enable admin flows.",
-        "operationId": "dev_elevate_user_api_admin_users_elevate_post",
+        "operationId": "post_api_admin_users_elevate",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1100,7 +1100,7 @@
           "Admin"
         ],
         "summary": "Admin Update Rank",
-        "operationId": "admin_update_rank_api_admin_users__user_id__rank_put",
+        "operationId": "put_api_admin_users_user_id_rank",
         "security": [
           {
             "HTTPBearer": []
@@ -1155,7 +1155,7 @@
           "Admin"
         ],
         "summary": "Admin Update Status",
-        "operationId": "admin_update_status_api_admin_users__user_id__status_put",
+        "operationId": "put_api_admin_users_user_id_status",
         "security": [
           {
             "HTTPBearer": []
@@ -1210,7 +1210,7 @@
           "Admin"
         ],
         "summary": "Admin User Logs",
-        "operationId": "admin_user_logs_api_admin_users__user_id__logs_get",
+        "operationId": "get_api_admin_users_user_id_logs",
         "security": [
           {
             "HTTPBearer": []
@@ -1247,7 +1247,7 @@
                   "items": {
                     "$ref": "#/components/schemas/AdminLogResponse"
                   },
-                  "title": "Response Admin User Logs Api Admin Users  User Id  Logs Get"
+                  "title": "Response Get Api Admin Users User Id Logs"
                 }
               }
             }
@@ -1271,7 +1271,7 @@
           "Admin"
         ],
         "summary": "List Audit Logs",
-        "operationId": "list_audit_logs_api_admin_audit_logs_get",
+        "operationId": "get_api_admin_audit_logs",
         "security": [
           {
             "HTTPBearer": []
@@ -1409,7 +1409,7 @@
           "Admin"
         ],
         "summary": "Export Audit Logs Csv",
-        "operationId": "export_audit_logs_csv_api_admin_audit_logs_csv_get",
+        "operationId": "get_api_admin_audit_logs.csv",
         "security": [
           {
             "HTTPBearer": []
@@ -1547,7 +1547,7 @@
           "Admin"
         ],
         "summary": "Admin List Items",
-        "operationId": "admin_list_items_api_admin_shop_items_get",
+        "operationId": "get_api_admin_shop_items",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -1558,7 +1558,7 @@
                     "$ref": "#/components/schemas/AdminCatalogItemOut"
                   },
                   "type": "array",
-                  "title": "Response Admin List Items Api Admin Shop Items Get"
+                  "title": "Response Get Api Admin Shop Items"
                 }
               }
             }
@@ -1575,7 +1575,7 @@
           "Admin"
         ],
         "summary": "Admin Create Item",
-        "operationId": "admin_create_item_api_admin_shop_items_post",
+        "operationId": "post_api_admin_shop_items",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1621,7 +1621,7 @@
           "Admin"
         ],
         "summary": "Admin Update Item",
-        "operationId": "admin_update_item_api_admin_shop_items__item_id__put",
+        "operationId": "put_api_admin_shop_items_item_id",
         "security": [
           {
             "HTTPBearer": []
@@ -1676,7 +1676,7 @@
           "Admin"
         ],
         "summary": "Admin Delete Item",
-        "operationId": "admin_delete_item_api_admin_shop_items__item_id__delete",
+        "operationId": "delete_api_admin_shop_items_item_id",
         "security": [
           {
             "HTTPBearer": []
@@ -1721,7 +1721,7 @@
           "Admin"
         ],
         "summary": "Admin Set Discount",
-        "operationId": "admin_set_discount_api_admin_shop_items__item_id__discount_patch",
+        "operationId": "patch_api_admin_shop_items_item_id_discount",
         "security": [
           {
             "HTTPBearer": []
@@ -1778,7 +1778,7 @@
           "Admin"
         ],
         "summary": "Admin Set Rank",
-        "operationId": "admin_set_rank_api_admin_shop_items__item_id__rank_patch",
+        "operationId": "patch_api_admin_shop_items_item_id_rank",
         "security": [
           {
             "HTTPBearer": []
@@ -1836,7 +1836,7 @@
         ],
         "summary": "Get Admin Stats",
         "description": "확장 관리자 통계 반환 (Redis 5s 캐시).\n\n캐시 키: admin:stats:cache:v1\n실패 시 안전하게 빈 기본값 반환.",
-        "operationId": "get_admin_stats_api_admin_stats_get",
+        "operationId": "get_api_admin_stats",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -1863,7 +1863,7 @@
         ],
         "summary": "Ban User",
         "description": "Ban a user",
-        "operationId": "ban_user_api_admin_users__user_id__ban_post",
+        "operationId": "post_api_admin_users_user_id_ban",
         "security": [
           {
             "HTTPBearer": []
@@ -1919,7 +1919,7 @@
         ],
         "summary": "Unban User",
         "description": "Unban a user",
-        "operationId": "unban_user_api_admin_users__user_id__unban_post",
+        "operationId": "post_api_admin_users_user_id_unban",
         "security": [
           {
             "HTTPBearer": []
@@ -1965,7 +1965,7 @@
         ],
         "summary": "Add User Tokens",
         "description": "Add tokens to a user account (admin only).\n- 호환성: JSON 본문({amount, reason}) 또는 쿼리 파라미터 amount 모두 지원",
-        "operationId": "add_user_tokens_api_admin_users__user_id__tokens_add_post",
+        "operationId": "post_api_admin_users_user_id_tokens_add",
         "security": [
           {
             "HTTPBearer": []
@@ -2043,7 +2043,7 @@
           "Admin"
         ],
         "summary": "Admin Limited Toggle",
-        "operationId": "admin_limited_toggle_api_admin_limited_toggle_post",
+        "operationId": "post_api_admin_limited_toggle",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2087,7 +2087,7 @@
           "Admin"
         ],
         "summary": "Admin Update Gacha Config",
-        "operationId": "admin_update_gacha_config_api_admin_gacha_config_post",
+        "operationId": "post_api_admin_gacha_config",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2131,7 +2131,7 @@
           "Admin"
         ],
         "summary": "Create Campaign",
-        "operationId": "create_campaign_api_admin_campaigns_post",
+        "operationId": "post_api_admin_campaigns",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2175,7 +2175,7 @@
           "Admin"
         ],
         "summary": "Cancel Campaign",
-        "operationId": "cancel_campaign_api_admin_campaigns__campaign_id__cancel_post",
+        "operationId": "post_api_admin_campaigns_campaign_id_cancel",
         "security": [
           {
             "HTTPBearer": []
@@ -2220,7 +2220,7 @@
           "Admin"
         ],
         "summary": "Admin List Transactions",
-        "operationId": "admin_list_transactions_api_admin_transactions_get",
+        "operationId": "get_api_admin_transactions",
         "security": [
           {
             "HTTPBearer": []
@@ -2266,7 +2266,7 @@
           "Admin"
         ],
         "summary": "Admin Force Settle",
-        "operationId": "admin_force_settle_api_admin_transactions__receipt__force_settle_post",
+        "operationId": "post_api_admin_transactions_receipt_force-settle",
         "security": [
           {
             "HTTPBearer": []
@@ -2321,7 +2321,7 @@
           "Admin"
         ],
         "summary": "Admin Limited Upsert",
-        "operationId": "admin_limited_upsert_api_admin_limited_packages_upsert_post",
+        "operationId": "post_api_admin_limited-packages_upsert",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2365,7 +2365,7 @@
           "Admin"
         ],
         "summary": "Admin Limited Disable",
-        "operationId": "admin_limited_disable_api_admin_limited_packages__package_id__disable_post",
+        "operationId": "post_api_admin_limited-packages_package_id_disable",
         "security": [
           {
             "HTTPBearer": []
@@ -2410,7 +2410,7 @@
           "Admin"
         ],
         "summary": "Admin Promo Upsert",
-        "operationId": "admin_promo_upsert_api_admin_promo_codes_upsert_post",
+        "operationId": "post_api_admin_promo-codes_upsert",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2454,7 +2454,7 @@
           "Admin"
         ],
         "summary": "Admin Limited Period",
-        "operationId": "admin_limited_period_api_admin_limited_period_post",
+        "operationId": "post_api_admin_limited_period",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2498,7 +2498,7 @@
           "Admin"
         ],
         "summary": "Admin Limited Stock",
-        "operationId": "admin_limited_stock_api_admin_limited_stock_post",
+        "operationId": "post_api_admin_limited_stock",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2542,7 +2542,7 @@
           "Admin"
         ],
         "summary": "Admin Limited Per User Limit",
-        "operationId": "admin_limited_per_user_limit_api_admin_limited_per_user_limit_post",
+        "operationId": "post_api_admin_limited_per-user-limit",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2586,7 +2586,7 @@
           "Admin"
         ],
         "summary": "Admin Limited Promo Set",
-        "operationId": "admin_limited_promo_set_api_admin_limited_promo_set_post",
+        "operationId": "post_api_admin_limited_promo_set",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2630,7 +2630,7 @@
           "Admin"
         ],
         "summary": "Admin Limited Promo Clear",
-        "operationId": "admin_limited_promo_clear_api_admin_limited_promo_clear_post",
+        "operationId": "post_api_admin_limited_promo_clear",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2674,7 +2674,7 @@
           "Admin"
         ],
         "summary": "관리자 골드 지급",
-        "operationId": "admin_grant_gold_api_admin_users__user_id__gold_grant_post",
+        "operationId": "post_api_admin_users_user_id_gold_grant",
         "security": [
           {
             "HTTPBearer": []
@@ -2728,7 +2728,7 @@
     "/api/olap/health": {
       "get": {
         "summary": "Olap Health",
-        "operationId": "olap_health_api_olap_health_get",
+        "operationId": "get_api_olap_health",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -2748,7 +2748,7 @@
           "Game Actions"
         ],
         "summary": "Log Action",
-        "operationId": "log_action_api_actions_post",
+        "operationId": "post_api_actions",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2790,7 +2790,7 @@
           "Game Actions"
         ],
         "summary": "Log Actions Bulk",
-        "operationId": "log_actions_bulk_api_actions_bulk_post",
+        "operationId": "post_api_actions_bulk",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2808,7 +2808,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "title": "Response Log Actions Bulk Api Actions Bulk Post"
+                  "title": "Response Post Api Actions Bulk"
                 }
               }
             }
@@ -2833,7 +2833,7 @@
           "Game Actions"
         ],
         "summary": "Recent Actions",
-        "operationId": "recent_actions_api_actions_recent__user_id__get",
+        "operationId": "get_api_actions_recent_user_id",
         "parameters": [
           {
             "name": "user_id",
@@ -2865,7 +2865,7 @@
                   "items": {
                     "$ref": "#/components/schemas/ActionItem"
                   },
-                  "title": "Response Recent Actions Api Actions Recent  User Id  Get"
+                  "title": "Response Get Api Actions Recent User Id"
                 }
               }
             }
@@ -2892,7 +2892,7 @@
         ],
         "summary": "Get User Rewards",
         "description": "Retrieves a paginated list of rewards for a specific user.",
-        "operationId": "get_user_rewards_api_rewards_users__user_id__rewards_get",
+        "operationId": "get_api_rewards_users_user_id_rewards",
         "parameters": [
           {
             "name": "user_id",
@@ -2965,7 +2965,7 @@
         ],
         "summary": "Distribute Reward To User",
         "description": "Distributes a specific reward to a user.\nThis is the central endpoint for granting rewards from games or events.",
-        "operationId": "distribute_reward_to_user_api_rewards_distribute_post",
+        "operationId": "post_api_rewards_distribute",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2997,7 +2997,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/shop/catalog": {
@@ -3007,7 +3012,7 @@
           "Shop"
         ],
         "summary": "List shop catalog (gold)",
-        "operationId": "list_catalog_api_shop_catalog_get",
+        "operationId": "get_api_shop_catalog",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -3018,7 +3023,7 @@
                     "$ref": "#/components/schemas/CatalogItem"
                   },
                   "type": "array",
-                  "title": "Response List Catalog Api Shop Catalog Get"
+                  "title": "Response Get Api Shop Catalog"
                 }
               }
             }
@@ -3033,7 +3038,7 @@
           "Shop"
         ],
         "summary": "Admin Create Product",
-        "operationId": "admin_create_product_api_shop_admin_products_post",
+        "operationId": "post_api_shop_admin_products",
         "security": [
           {
             "HTTPBearer": []
@@ -3078,7 +3083,7 @@
           "Shop"
         ],
         "summary": "List products (soft delete aware)",
-        "operationId": "admin_list_products_api_shop_admin_products_get",
+        "operationId": "get_api_shop_admin_products",
         "security": [
           {
             "HTTPBearer": []
@@ -3125,7 +3130,7 @@
           "Shop"
         ],
         "summary": "Admin Update Product",
-        "operationId": "admin_update_product_api_shop_admin_products__product_id__put",
+        "operationId": "put_api_shop_admin_products_product_id",
         "security": [
           {
             "HTTPBearer": []
@@ -3179,7 +3184,7 @@
           "Shop"
         ],
         "summary": "Admin Soft Delete Product",
-        "operationId": "admin_soft_delete_product_api_shop_admin_products__product_id__delete",
+        "operationId": "delete_api_shop_admin_products_product_id",
         "security": [
           {
             "HTTPBearer": []
@@ -3225,7 +3230,7 @@
           "Shop"
         ],
         "summary": "Admin Restore Product",
-        "operationId": "admin_restore_product_api_shop_admin_products__product_id__restore_post",
+        "operationId": "post_api_shop_admin_products_product_id_restore",
         "security": [
           {
             "HTTPBearer": []
@@ -3271,7 +3276,7 @@
           "Shop"
         ],
         "summary": "List active limited packages (gold)",
-        "operationId": "list_limited_packages_api_shop_limited_packages_get",
+        "operationId": "get_api_shop_limited-packages",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -3282,7 +3287,7 @@
                     "$ref": "#/components/schemas/LimitedPackageOut"
                   },
                   "type": "array",
-                  "title": "Response List Limited Packages Api Shop Limited Packages Get"
+                  "title": "Response Get Api Shop Limited-Packages"
                 }
               }
             }
@@ -3297,7 +3302,7 @@
           "Shop"
         ],
         "summary": "List limited packages (compat)",
-        "operationId": "list_limited_catalog_api_shop_limited_catalog_get",
+        "operationId": "get_api_shop_limited_catalog",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -3308,7 +3313,7 @@
                     "$ref": "#/components/schemas/LimitedPackageOut"
                   },
                   "type": "array",
-                  "title": "Response List Limited Catalog Api Shop Limited Catalog Get"
+                  "title": "Response Get Api Shop Limited Catalog"
                 }
               }
             }
@@ -3366,7 +3371,7 @@
         ],
         "summary": "Payment Webhook (Replay & 멱등 보호)",
         "description": "결제 프로바이더 웹훅 수신.\n보안 계층:\n  1) HMAC 서명 검증 (X-Signature)\n  2) 재생(Replay) 방어: X-Timestamp + X-Nonce (서로 결합한 키 Redis SETNX, 시간왜곡 허용 ±300s)\n  3) 이벤트 멱등: X-Event-Id 헤더 또는 payload.event_id 기준 Redis SETNX (중복시 duplicate 응답)\n\n기대 헤더:\n  - X-Signature: sha256=<hex>\n  - X-Timestamp: unix epoch seconds\n  - X-Nonce: 임의 UUID/난수 문자열\n  - (선택) X-Event-Id: 공급자 이벤트 고유 ID",
-        "operationId": "payment_webhook_api_shop_webhook_payment_post",
+        "operationId": "post_api_shop_webhook_payment",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -3387,7 +3392,7 @@
         ],
         "summary": "Purchase Item",
         "description": "Purchase shop item using user's gold tokens",
-        "operationId": "purchase_shop_item_api_shop_purchase_post",
+        "operationId": "post_api_shop_purchase",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3429,7 +3434,7 @@
           "Shop"
         ],
         "summary": "Buy gold top-up or items",
-        "operationId": "buy_api_shop_buy_post",
+        "operationId": "post_api_shop_buy",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3476,7 +3481,7 @@
           "Shop"
         ],
         "summary": "List My Transactions",
-        "operationId": "list_my_transactions_api_shop_transactions_get",
+        "operationId": "get_api_shop_transactions",
         "security": [
           {
             "HTTPBearer": []
@@ -3523,7 +3528,7 @@
           "Shop"
         ],
         "summary": "Settle My Transaction",
-        "operationId": "settle_my_transaction_api_shop_transactions__receipt__settle_post",
+        "operationId": "post_api_shop_transactions_receipt_settle",
         "security": [
           {
             "HTTPBearer": []
@@ -3616,7 +3621,7 @@
         ],
         "summary": "Get User Missions",
         "description": "Get the list of active missions and the current user's progress.",
-        "operationId": "get_user_missions_api_missions__get",
+        "operationId": "get_api_missions",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -3641,7 +3646,7 @@
         ],
         "summary": "Claim Mission Reward",
         "description": "Claim the reward for a completed mission.",
-        "operationId": "claim_mission_reward_api_missions__mission_id__claim_post",
+        "operationId": "post_api_missions_mission_id_claim",
         "security": [
           {
             "HTTPBearer": []
@@ -3687,7 +3692,7 @@
         ],
         "summary": "Get Main Dashboard",
         "description": "Get main dashboard statistics.",
-        "operationId": "get_main_dashboard_api_dashboard_main_get",
+        "operationId": "get_api_dashboard_main",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -3707,7 +3712,7 @@
         ],
         "summary": "Get Games Dashboard",
         "description": "Get game-specific dashboard statistics.",
-        "operationId": "get_games_dashboard_api_dashboard_games_get",
+        "operationId": "get_api_dashboard_games",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -3727,7 +3732,7 @@
         ],
         "summary": "Get Social Proof",
         "description": "Get statistics for social proof widgets.\nThis endpoint is not protected by admin auth to be publicly available.",
-        "operationId": "get_social_proof_api_dashboard_social_proof_get",
+        "operationId": "get_api_dashboard_social-proof",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -3747,7 +3752,7 @@
         ],
         "summary": "Unified dashboard aggregate",
         "description": "통합 대시보드 집계 엔드포인트\n\n기존 개별 엔드포인트(/dashboard/main, /dashboard/games, /dashboard/social-proof)를 한 번에 호출해\n프론트 초기 로딩 RTT를 줄이고 일관된 스냅샷을 제공한다.\n\nResponse 예시:\n{\n  \"main\": {...},\n  \"games\": {...},\n  \"social_proof\": {...},\n  \"_meta\": {\"generated_at\": \"2025-08-21T12:34:56Z\"}\n}",
-        "operationId": "get_unified_dashboard_api_dashboard_get",
+        "operationId": "get_api_dashboard",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -3755,7 +3760,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "title": "Response Get Unified Dashboard Api Dashboard Get"
+                  "title": "Response Get Api Dashboard"
                 }
               }
             }
@@ -3775,7 +3780,7 @@
         ],
         "summary": "Get Active Events",
         "description": "활성 이벤트 목록 조회",
-        "operationId": "get_active_events_api_events__get",
+        "operationId": "get_api_events",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -3786,7 +3791,7 @@
                     "$ref": "#/components/schemas/app__schemas__event_schemas__EventResponse"
                   },
                   "type": "array",
-                  "title": "Response Get Active Events Api Events  Get"
+                  "title": "Response Get Api Events"
                 }
               }
             }
@@ -3805,7 +3810,7 @@
           "Events & Missions"
         ],
         "summary": "Admin Create Event",
-        "operationId": "admin_create_event_api_events_admin_post",
+        "operationId": "post_api_events_admin",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3851,7 +3856,7 @@
           "Events & Missions"
         ],
         "summary": "Admin List Events",
-        "operationId": "admin_list_events_api_events_admin_list_get",
+        "operationId": "get_api_events_admin_list",
         "security": [
           {
             "HTTPBearer": []
@@ -3879,7 +3884,7 @@
                   "items": {
                     "$ref": "#/components/schemas/app__schemas__event_schemas__EventResponse"
                   },
-                  "title": "Response Admin List Events Api Events Admin List Get"
+                  "title": "Response Get Api Events Admin List"
                 }
               }
             }
@@ -3903,7 +3908,7 @@
           "Events & Missions"
         ],
         "summary": "Admin Update Event",
-        "operationId": "admin_update_event_api_events_admin__event_id__put",
+        "operationId": "put_api_events_admin_event_id",
         "security": [
           {
             "HTTPBearer": []
@@ -3958,7 +3963,7 @@
           "Events & Missions"
         ],
         "summary": "Admin Soft Delete Event",
-        "operationId": "admin_soft_delete_event_api_events_admin__event_id__delete",
+        "operationId": "delete_api_events_admin_event_id",
         "security": [
           {
             "HTTPBearer": []
@@ -4003,7 +4008,7 @@
           "Events & Missions"
         ],
         "summary": "Admin Restore Event",
-        "operationId": "admin_restore_event_api_events_admin__event_id__restore_post",
+        "operationId": "post_api_events_admin_event_id_restore",
         "security": [
           {
             "HTTPBearer": []
@@ -4049,7 +4054,7 @@
         ],
         "summary": "Get Event Detail",
         "description": "이벤트 상세 조회",
-        "operationId": "get_event_detail_api_events__event_id__get",
+        "operationId": "get_api_events_event_id",
         "security": [
           {
             "HTTPBearer": []
@@ -4097,7 +4102,7 @@
         ],
         "summary": "Join Event",
         "description": "이벤트 참여",
-        "operationId": "join_event_api_events_join_post",
+        "operationId": "post_api_events_join",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4144,7 +4149,7 @@
         ],
         "summary": "Update Event Progress",
         "description": "이벤트 진행 상황 업데이트",
-        "operationId": "update_event_progress_api_events_progress__event_id__put",
+        "operationId": "put_api_events_progress_event_id",
         "security": [
           {
             "HTTPBearer": []
@@ -4202,7 +4207,7 @@
         ],
         "summary": "Claim Event Rewards",
         "description": "이벤트 보상 수령",
-        "operationId": "claim_event_rewards_api_events_claim__event_id__post",
+        "operationId": "post_api_events_claim_event_id",
         "security": [
           {
             "HTTPBearer": []
@@ -4250,7 +4255,7 @@
         ],
         "summary": "Get Daily Missions",
         "description": "일일 미션 목록 조회",
-        "operationId": "get_daily_missions_api_events_missions_daily_get",
+        "operationId": "get_api_events_missions_daily",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -4261,7 +4266,7 @@
                     "$ref": "#/components/schemas/UserMissionResponse"
                   },
                   "type": "array",
-                  "title": "Response Get Daily Missions Api Events Missions Daily Get"
+                  "title": "Response Get Api Events Missions Daily"
                 }
               }
             }
@@ -4281,7 +4286,7 @@
         ],
         "summary": "Get Weekly Missions",
         "description": "주간 미션 목록 조회",
-        "operationId": "get_weekly_missions_api_events_missions_weekly_get",
+        "operationId": "get_api_events_missions_weekly",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -4292,7 +4297,7 @@
                     "$ref": "#/components/schemas/UserMissionResponse"
                   },
                   "type": "array",
-                  "title": "Response Get Weekly Missions Api Events Missions Weekly Get"
+                  "title": "Response Get Api Events Missions Weekly"
                 }
               }
             }
@@ -4312,7 +4317,7 @@
         ],
         "summary": "Get All Missions",
         "description": "모든 미션 목록 조회",
-        "operationId": "get_all_missions_api_events_missions_all_get",
+        "operationId": "get_api_events_missions_all",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -4323,7 +4328,7 @@
                     "$ref": "#/components/schemas/UserMissionResponse"
                   },
                   "type": "array",
-                  "title": "Response Get All Missions Api Events Missions All Get"
+                  "title": "Response Get Api Events Missions All"
                 }
               }
             }
@@ -4343,7 +4348,7 @@
         ],
         "summary": "Update Mission Progress",
         "description": "미션 진행 상황 업데이트",
-        "operationId": "update_mission_progress_api_events_missions_progress_put",
+        "operationId": "put_api_events_missions_progress",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4361,7 +4366,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "title": "Response Update Mission Progress Api Events Missions Progress Put"
+                  "title": "Response Put Api Events Missions Progress"
                 }
               }
             }
@@ -4391,7 +4396,7 @@
         ],
         "summary": "Claim Mission Rewards",
         "description": "미션 보상 수령",
-        "operationId": "claim_mission_rewards_api_events_missions_claim__mission_id__post",
+        "operationId": "post_api_events_missions_claim_mission_id",
         "security": [
           {
             "HTTPBearer": []
@@ -4438,7 +4443,7 @@
           "Streaks"
         ],
         "summary": "Status",
-        "operationId": "status_api_streak_status_get",
+        "operationId": "get_api_streak_status",
         "security": [
           {
             "HTTPBearer": []
@@ -4486,7 +4491,7 @@
           "Streaks"
         ],
         "summary": "Tick",
-        "operationId": "tick_api_streak_tick_post",
+        "operationId": "post_api_streak_tick",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4532,7 +4537,7 @@
           "Streaks"
         ],
         "summary": "Reset",
-        "operationId": "reset_api_streak_reset_post",
+        "operationId": "post_api_streak_reset",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4576,7 +4581,7 @@
           "Streaks"
         ],
         "summary": "Next Reward",
-        "operationId": "next_reward_api_streak_next_reward_get",
+        "operationId": "get_api_streak_next-reward",
         "security": [
           {
             "HTTPBearer": []
@@ -4622,7 +4627,7 @@
           "Streaks"
         ],
         "summary": "History",
-        "operationId": "history_api_streak_history_get",
+        "operationId": "get_api_streak_history",
         "security": [
           {
             "HTTPBearer": []
@@ -4692,7 +4697,7 @@
           "Streaks"
         ],
         "summary": "Protection Status",
-        "operationId": "protection_status_api_streak_protection_get",
+        "operationId": "get_api_streak_protection",
         "security": [
           {
             "HTTPBearer": []
@@ -4738,7 +4743,7 @@
           "Streaks"
         ],
         "summary": "Set Protection",
-        "operationId": "set_protection_api_streak_protection_post",
+        "operationId": "post_api_streak_protection",
         "security": [
           {
             "HTTPBearer": []
@@ -4785,7 +4790,7 @@
         ],
         "summary": "Preview",
         "description": "현재 streak 및 오늘/내일 보상 금액 미리보기 제공.\n\n프론트는 이 엔드포인트를 사용해 클라이언트 산식 중복 제거.\n- streak_count: Redis 카운터 (증가 없이 조회)\n- claimed_today: 동일 UTC day idempotency key 존재 여부\n- claimable: streak_count>0 이고 claimed_today False\n- today_reward: streak_count 기반 산식\n- next_day_reward: streak_count+1 기반 산식",
-        "operationId": "preview_api_streak_preview_get",
+        "operationId": "get_api_streak_preview",
         "security": [
           {
             "HTTPBearer": []
@@ -4833,7 +4838,7 @@
           "Streaks"
         ],
         "summary": "Claim",
-        "operationId": "claim_api_streak_claim_post",
+        "operationId": "post_api_streak_claim",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4879,7 +4884,7 @@
           "VIP"
         ],
         "summary": "Vip Status",
-        "operationId": "vip_status_api_vip_status_get",
+        "operationId": "get_api_vip_status",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -4905,7 +4910,7 @@
           "VIP"
         ],
         "summary": "Claim Vip Daily",
-        "operationId": "claim_vip_daily_api_vip_claim_post",
+        "operationId": "post_api_vip_claim",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -4933,7 +4938,7 @@
         ],
         "summary": "Get Notification Settings Anon",
         "description": "Return default notification settings; include user_id when available.\n\nThis endpoint intentionally allows anonymous requests and will not trigger\nthe global HTTPBearer auto_error behavior.",
-        "operationId": "get_notification_settings_anon_api_notification_settings_anon_get",
+        "operationId": "get_api_notification_settings_anon",
         "parameters": [
           {
             "name": "authorization",
@@ -4959,7 +4964,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "title": "Response Get Notification Settings Anon Api Notification Settings Anon Get"
+                  "title": "Response Get Api Notification Settings Anon"
                 }
               }
             }
@@ -4983,7 +4988,7 @@
           "Admin Content"
         ],
         "summary": "List Events",
-        "operationId": "list_events_api_admin_content_events_get",
+        "operationId": "get_api_admin_content_events",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -4994,7 +4999,7 @@
                     "$ref": "#/components/schemas/app__routers__admin_content__EventResponse"
                   },
                   "type": "array",
-                  "title": "Response List Events Api Admin Content Events Get"
+                  "title": "Response Get Api Admin Content Events"
                 }
               }
             }
@@ -5011,7 +5016,7 @@
           "Admin Content"
         ],
         "summary": "Create Event",
-        "operationId": "create_event_api_admin_content_events_post",
+        "operationId": "post_api_admin_content_events",
         "requestBody": {
           "content": {
             "application/json": {
@@ -5057,7 +5062,7 @@
           "Admin Content"
         ],
         "summary": "Get Event",
-        "operationId": "get_event_api_admin_content_events__event_id__get",
+        "operationId": "get_api_admin_content_events_event_id",
         "security": [
           {
             "HTTPBearer": []
@@ -5103,7 +5108,7 @@
           "Admin Content"
         ],
         "summary": "Update Event",
-        "operationId": "update_event_api_admin_content_events__event_id__put",
+        "operationId": "put_api_admin_content_events_event_id",
         "security": [
           {
             "HTTPBearer": []
@@ -5158,7 +5163,7 @@
           "Admin Content"
         ],
         "summary": "Delete Event",
-        "operationId": "delete_event_api_admin_content_events__event_id__delete",
+        "operationId": "delete_api_admin_content_events_event_id",
         "security": [
           {
             "HTTPBearer": []
@@ -5203,7 +5208,7 @@
           "Admin Content"
         ],
         "summary": "Activate Event",
-        "operationId": "activate_event_api_admin_content_events__event_id__activate_post",
+        "operationId": "post_api_admin_content_events_event_id_activate",
         "security": [
           {
             "HTTPBearer": []
@@ -5248,7 +5253,7 @@
           "Admin Content"
         ],
         "summary": "Deactivate Event",
-        "operationId": "deactivate_event_api_admin_content_events__event_id__deactivate_post",
+        "operationId": "post_api_admin_content_events_event_id_deactivate",
         "security": [
           {
             "HTTPBearer": []
@@ -5293,7 +5298,7 @@
           "Admin Content"
         ],
         "summary": "List Mission Templates",
-        "operationId": "list_mission_templates_api_admin_content_missions_templates_get",
+        "operationId": "get_api_admin_content_missions_templates",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -5304,7 +5309,7 @@
                     "$ref": "#/components/schemas/MissionTemplateResponse"
                   },
                   "type": "array",
-                  "title": "Response List Mission Templates Api Admin Content Missions Templates Get"
+                  "title": "Response Get Api Admin Content Missions Templates"
                 }
               }
             }
@@ -5321,7 +5326,7 @@
           "Admin Content"
         ],
         "summary": "Create Mission Template",
-        "operationId": "create_mission_template_api_admin_content_missions_templates_post",
+        "operationId": "post_api_admin_content_missions_templates",
         "requestBody": {
           "content": {
             "application/json": {
@@ -5367,7 +5372,7 @@
           "Admin Content"
         ],
         "summary": "Update Mission Template",
-        "operationId": "update_mission_template_api_admin_content_missions_templates__template_id__put",
+        "operationId": "put_api_admin_content_missions_templates_template_id",
         "security": [
           {
             "HTTPBearer": []
@@ -5422,7 +5427,7 @@
           "Admin Content"
         ],
         "summary": "Delete Mission Template",
-        "operationId": "delete_mission_template_api_admin_content_missions_templates__template_id__delete",
+        "operationId": "delete_api_admin_content_missions_templates_template_id",
         "security": [
           {
             "HTTPBearer": []
@@ -5467,7 +5472,7 @@
           "Admin Content"
         ],
         "summary": "List Reward Catalog",
-        "operationId": "list_reward_catalog_api_admin_content_rewards_catalog_get",
+        "operationId": "get_api_admin_content_rewards_catalog",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -5478,7 +5483,7 @@
                     "$ref": "#/components/schemas/RewardCatalogItem"
                   },
                   "type": "array",
-                  "title": "Response List Reward Catalog Api Admin Content Rewards Catalog Get"
+                  "title": "Response Get Api Admin Content Rewards Catalog"
                 }
               }
             }
@@ -5495,7 +5500,7 @@
           "Admin Content"
         ],
         "summary": "Create Reward Catalog",
-        "operationId": "create_reward_catalog_api_admin_content_rewards_catalog_post",
+        "operationId": "post_api_admin_content_rewards_catalog",
         "requestBody": {
           "content": {
             "application/json": {
@@ -5541,7 +5546,7 @@
           "Admin Content"
         ],
         "summary": "Update Reward Catalog",
-        "operationId": "update_reward_catalog_api_admin_content_rewards_catalog__reward_id__put",
+        "operationId": "put_api_admin_content_rewards_catalog_reward_id",
         "security": [
           {
             "HTTPBearer": []
@@ -5596,7 +5601,7 @@
           "Admin Content"
         ],
         "summary": "Delete Reward Catalog",
-        "operationId": "delete_reward_catalog_api_admin_content_rewards_catalog__reward_id__delete",
+        "operationId": "delete_api_admin_content_rewards_catalog_reward_id",
         "security": [
           {
             "HTTPBearer": []
@@ -5641,7 +5646,7 @@
           "Admin Content"
         ],
         "summary": "Activate Reward",
-        "operationId": "activate_reward_api_admin_content_rewards_catalog__reward_id__activate_post",
+        "operationId": "post_api_admin_content_rewards_catalog_reward_id_activate",
         "security": [
           {
             "HTTPBearer": []
@@ -5686,7 +5691,7 @@
           "Admin Content"
         ],
         "summary": "Deactivate Reward",
-        "operationId": "deactivate_reward_api_admin_content_rewards_catalog__reward_id__deactivate_post",
+        "operationId": "post_api_admin_content_rewards_catalog_reward_id_deactivate",
         "security": [
           {
             "HTTPBearer": []
@@ -5731,7 +5736,7 @@
           "Admin Content"
         ],
         "summary": "Reward Audit",
-        "operationId": "reward_audit_api_admin_content_rewards_audit_get",
+        "operationId": "get_api_admin_content_rewards_audit",
         "security": [
           {
             "HTTPBearer": []
@@ -5843,7 +5848,7 @@
           "Admin Events"
         ],
         "summary": "Create Event",
-        "operationId": "create_event_api_admin_events__post",
+        "operationId": "post_api_admin_events",
         "security": [
           {
             "HTTPBearer": []
@@ -5887,7 +5892,7 @@
           "Admin Events"
         ],
         "summary": "List Events",
-        "operationId": "list_events_api_admin_events__get",
+        "operationId": "get_api_admin_events",
         "security": [
           {
             "HTTPBearer": []
@@ -5915,7 +5920,7 @@
                   "items": {
                     "$ref": "#/components/schemas/app__schemas__event_schemas__EventResponse"
                   },
-                  "title": "Response List Events Api Admin Events  Get"
+                  "title": "Response Get Api Admin Events"
                 }
               }
             }
@@ -5939,7 +5944,7 @@
           "Admin Events"
         ],
         "summary": "Update Event",
-        "operationId": "update_event_api_admin_events__event_id__put",
+        "operationId": "put_api_admin_events_event_id",
         "security": [
           {
             "HTTPBearer": []
@@ -5996,7 +6001,7 @@
           "Admin Events"
         ],
         "summary": "Deactivate Event",
-        "operationId": "deactivate_event_api_admin_events__event_id__deactivate_post",
+        "operationId": "post_api_admin_events_event_id_deactivate",
         "security": [
           {
             "HTTPBearer": []
@@ -6043,7 +6048,7 @@
           "Admin Events"
         ],
         "summary": "List Participations",
-        "operationId": "list_participations_api_admin_events__event_id__participations_get",
+        "operationId": "get_api_admin_events_event_id_participations",
         "security": [
           {
             "HTTPBearer": []
@@ -6102,7 +6107,7 @@
                   "items": {
                     "$ref": "#/components/schemas/EventParticipationResponse"
                   },
-                  "title": "Response List Participations Api Admin Events  Event Id  Participations Get"
+                  "title": "Response Get Api Admin Events Event Id Participations"
                 }
               }
             }
@@ -6126,7 +6131,7 @@
           "Admin Events"
         ],
         "summary": "Force Claim",
-        "operationId": "force_claim_api_admin_events__event_id__force_claim__user_id__post",
+        "operationId": "post_api_admin_events_event_id_force-claim_user_id",
         "security": [
           {
             "HTTPBearer": []
@@ -6182,7 +6187,7 @@
           "Admin Events"
         ],
         "summary": "Seed Model Index Event",
-        "operationId": "seed_model_index_event_api_admin_events_seed_model_index_post",
+        "operationId": "post_api_admin_events_seed_model-index",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -6210,7 +6215,7 @@
         ],
         "summary": "Get Docs Titles",
         "description": "Return document names and their H1-H3 titles from the docs folder.",
-        "operationId": "get_docs_titles_api_doc_titles_docs_titles_get",
+        "operationId": "get_api_doc-titles_docs_titles",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -6219,7 +6224,7 @@
                 "schema": {
                   "items": {},
                   "type": "array",
-                  "title": "Response Get Docs Titles Api Doc Titles Docs Titles Get"
+                  "title": "Response Get Api Doc-Titles Docs Titles"
                 }
               }
             }
@@ -6234,7 +6239,7 @@
           "Feedback"
         ],
         "summary": "Get Personalized Emotion-Based Feedback",
-        "operationId": "get_emotion_based_feedback_endpoint_feedback_emotion_based_post",
+        "operationId": "post_feedback_emotion_based",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6259,7 +6264,7 @@
                       "type": "null"
                     }
                   ],
-                  "title": "Response Get Emotion Based Feedback Endpoint Feedback Emotion Based Post"
+                  "title": "Response Post Feedback Emotion Based"
                 }
               }
             }
@@ -6285,7 +6290,7 @@
         ],
         "summary": "Generate Feedback",
         "description": "Generate emotion-based feedback for user\n\nArgs:\n    request: Feedback request data\n        - user_id: User ID\n        - emotion: Emotion state\n        - segment: User segment\n        - context: Additional context information\n\nReturns:\n    Feedback response object",
-        "operationId": "generate_feedback_feedback_generate_post",
+        "operationId": "post_feedback_generate",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6330,7 +6335,7 @@
           "Games"
         ],
         "summary": "List Achievements",
-        "operationId": "list_achievements_api_games_achievements_get",
+        "operationId": "get_api_games_achievements",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -6351,7 +6356,7 @@
           "Games"
         ],
         "summary": "My Achievements",
-        "operationId": "my_achievements_api_games_achievements_my_get",
+        "operationId": "get_api_games_achievements_my",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -6377,7 +6382,7 @@
           "Games"
         ],
         "summary": "Get Basic Stats",
-        "operationId": "get_basic_stats_api_games_stats_basic_get",
+        "operationId": "get_api_games_stats_basic",
         "security": [
           {
             "HTTPBearer": []
@@ -6450,7 +6455,7 @@
           "Games"
         ],
         "summary": "Start Game Session",
-        "operationId": "start_game_session_api_games_session_start_post",
+        "operationId": "post_api_games_session_start",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6497,7 +6502,7 @@
         ],
         "summary": "Recalc User Game Stats",
         "description": "Recalculate authoritative aggregated stats for a user (crash only MVP).",
-        "operationId": "recalc_user_game_stats_api_games_stats_recalculate__user_id__post",
+        "operationId": "post_api_games_stats_recalculate_user_id",
         "security": [
           {
             "HTTPBearer": []
@@ -6542,7 +6547,7 @@
           "Games"
         ],
         "summary": "End Game Session",
-        "operationId": "end_game_session_api_games_session_end_post",
+        "operationId": "post_api_games_session_end",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6588,7 +6593,7 @@
           "Games"
         ],
         "summary": "Get Active Session",
-        "operationId": "get_active_session_api_games_session_active_get",
+        "operationId": "get_api_games_session_active",
         "security": [
           {
             "HTTPBearer": []
@@ -6642,7 +6647,7 @@
           "Games"
         ],
         "summary": "Get Gacha Config",
-        "operationId": "get_gacha_config_api_games_gacha_config_get",
+        "operationId": "get_api_games_gacha_config",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -6666,7 +6671,7 @@
           "Games"
         ],
         "summary": "Get Gacha Stats",
-        "operationId": "get_gacha_stats_api_games_gacha_stats_get",
+        "operationId": "get_api_games_gacha_stats",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -6691,7 +6696,7 @@
         ],
         "summary": "Get Games List",
         "description": "게임 목록 조회 (직접 JSON 반환)",
-        "operationId": "get_games_list_api_games__get",
+        "operationId": "get_api_games",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -6716,7 +6721,7 @@
         ],
         "summary": "Spin Slot",
         "description": "슬롯머신 스핀",
-        "operationId": "spin_slot_api_games_slot_spin_post",
+        "operationId": "post_api_games_slot_spin",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6763,7 +6768,7 @@
         ],
         "summary": "Play Rps",
         "description": "가위바위보 플레이",
-        "operationId": "play_rps_api_games_rps_play_post",
+        "operationId": "post_api_games_rps_play",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6810,7 +6815,7 @@
         ],
         "summary": "Pull Gacha",
         "description": "가챠 뽑기 (서비스 레이어 위임: 피티, 근접실패, 10연 할인 적용)",
-        "operationId": "pull_gacha_api_games_gacha_pull_post",
+        "operationId": "post_api_games_gacha_pull",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6857,7 +6862,7 @@
         ],
         "summary": "Place Crash Bet",
         "description": "크래시 게임 베팅 (단일 요청 내 시뮬레이션) \n개선 사항:\n- 사용자 잔액 차감/승리 가산 단일 트랜잭션 처리\n- 동시 중복 제출 방지용 행 잠금(SELECT ... FOR UPDATE) 기반 멱등 (초간단)\n- broadcast 에 status 추가 (placed|auto_cashed)\n- potential_win 과 별도로 simulated_max_win 제공 (auto_cashout 미지정 시 혼동 제거)",
-        "operationId": "place_crash_bet_api_games_crash_bet_post",
+        "operationId": "post_api_games_crash_bet",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6904,7 +6909,7 @@
         ],
         "summary": "Get Game Stats",
         "description": "사용자 전체 게임 통계 (슬롯/룰렛/가챠 등)",
-        "operationId": "get_game_stats_api_games_stats__user_id__get",
+        "operationId": "get_api_games_stats_user_id",
         "parameters": [
           {
             "name": "user_id",
@@ -6947,7 +6952,7 @@
         ],
         "summary": "Get My Authoritative Game Stats",
         "description": "현재 로그인 사용자에 대한 서버 권위 Crash GameStats.\n\nuser_game_stats 테이블 row 없으면 생성 후 반환. (MVP: crash 전용)\nTODO: 멀티 게임 타입 확장 시 game_type 파라미터 도입.",
-        "operationId": "get_my_authoritative_game_stats_api_games_stats_me_get",
+        "operationId": "get_api_games_stats_me",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -6972,7 +6977,7 @@
         ],
         "summary": "Get Profile Game Stats",
         "description": "프로필용 상세 게임 통계",
-        "operationId": "get_profile_game_stats_api_games_profile__user_id__stats_get",
+        "operationId": "get_api_games_profile_user_id_stats",
         "parameters": [
           {
             "name": "user_id",
@@ -7015,7 +7020,7 @@
         ],
         "summary": "Get Game Leaderboard",
         "description": "게임별 또는 전체 리더보드",
-        "operationId": "get_game_leaderboard_api_games_leaderboard_get",
+        "operationId": "get_api_games_leaderboard",
         "parameters": [
           {
             "name": "game_type",
@@ -7054,7 +7059,7 @@
                   "items": {
                     "$ref": "#/components/schemas/GameLeaderboard"
                   },
-                  "title": "Response Get Game Leaderboard Api Games Leaderboard Get"
+                  "title": "Response Get Api Games Leaderboard"
                 }
               }
             }
@@ -7079,7 +7084,7 @@
         ],
         "summary": "Get User Achievements",
         "description": "사용자 업적 목록 (기본 예시)",
-        "operationId": "get_user_achievements_api_games_achievements__user_id__get",
+        "operationId": "get_api_games_achievements_user_id",
         "parameters": [
           {
             "name": "user_id",
@@ -7101,7 +7106,7 @@
                   "items": {
                     "$ref": "#/components/schemas/Achievement"
                   },
-                  "title": "Response Get User Achievements Api Games Achievements  User Id  Get"
+                  "title": "Response Get Api Games Achievements User Id"
                 }
               }
             }
@@ -7126,7 +7131,7 @@
         ],
         "summary": "Get Game History",
         "description": "현재 사용자 GameHistory 조회\n\n필터:\n  - game_type, action_type (정확 일치)\n  - since (ISO8601 문자열) 이후\n페이지네이션:\n  - limit / offset\n정렬: 최신(created_at desc)",
-        "operationId": "get_game_history_api_games_history_get",
+        "operationId": "get_api_games_history",
         "security": [
           {
             "HTTPBearer": []
@@ -7232,7 +7237,7 @@
           "Games"
         ],
         "summary": "Get Game Type Stats",
-        "operationId": "get_game_type_stats_api_games__game_type__stats_get",
+        "operationId": "get_api_games_game_type_stats",
         "security": [
           {
             "HTTPBearer": []
@@ -7279,7 +7284,7 @@
           "Games"
         ],
         "summary": "Get Profile Stats",
-        "operationId": "get_profile_stats_api_games_profile_stats_get",
+        "operationId": "get_api_games_profile_stats",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -7305,7 +7310,7 @@
           "Games"
         ],
         "summary": "Follow User",
-        "operationId": "follow_user_api_games_follow__target_user_id__post",
+        "operationId": "post_api_games_follow_target_user_id",
         "security": [
           {
             "HTTPBearer": []
@@ -7350,7 +7355,7 @@
           "Games"
         ],
         "summary": "Unfollow User",
-        "operationId": "unfollow_user_api_games_follow__target_user_id__delete",
+        "operationId": "delete_api_games_follow_target_user_id",
         "security": [
           {
             "HTTPBearer": []
@@ -7397,7 +7402,7 @@
           "Games"
         ],
         "summary": "List Following",
-        "operationId": "list_following_api_games_follow_list_get",
+        "operationId": "get_api_games_follow_list",
         "security": [
           {
             "HTTPBearer": []
@@ -7455,7 +7460,7 @@
           "Games"
         ],
         "summary": "List Followers",
-        "operationId": "list_followers_api_games_follow_followers_get",
+        "operationId": "get_api_games_follow_followers",
         "security": [
           {
             "HTTPBearer": []
@@ -7514,7 +7519,7 @@
         ],
         "summary": "Create Invite Code",
         "description": "Generate a new invite code\nOnly admin users can generate invite codes",
-        "operationId": "create_invite_code_api_invite_generate_post",
+        "operationId": "post_api_invite_generate",
         "security": [
           {
             "HTTPBearer": []
@@ -7573,7 +7578,7 @@
         ],
         "summary": "Validate Invite Code",
         "description": "Validate an invite code\nReturns validation status and code details",
-        "operationId": "validate_invite_code_api_invite_validate_post",
+        "operationId": "post_api_invite_validate",
         "requestBody": {
           "content": {
             "application/json": {
@@ -7615,7 +7620,7 @@
         ],
         "summary": "List Invite Codes",
         "description": "List all invite codes created by the current user\nAdmin users can see all codes",
-        "operationId": "list_invite_codes_api_invite_codes_get",
+        "operationId": "get_api_invite_codes",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -7626,7 +7631,7 @@
                     "$ref": "#/components/schemas/InviteCodeResponse"
                   },
                   "type": "array",
-                  "title": "Response List Invite Codes Api Invite Codes Get"
+                  "title": "Response Get Api Invite Codes"
                 }
               }
             }
@@ -7646,7 +7651,7 @@
         ],
         "summary": "Deactivate Invite Code",
         "description": "Deactivate an invite code\nOnly the creator or admin can deactivate",
-        "operationId": "deactivate_invite_code_api_invite_codes__code__deactivate_patch",
+        "operationId": "patch_api_invite_codes_code_deactivate",
         "security": [
           {
             "HTTPBearer": []
@@ -7692,7 +7697,7 @@
         ],
         "summary": "Get Invite Stats",
         "description": "Get invite code statistics\nShows usage metrics for the current user's codes",
-        "operationId": "get_invite_stats_api_invite_stats_get",
+        "operationId": "get_api_invite_stats",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -7716,7 +7721,7 @@
           "RBAC Demo"
         ],
         "summary": "Premium Only",
-        "operationId": "premium_only_api_rbac_premium_get",
+        "operationId": "get_api_rbac_premium",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -7740,7 +7745,7 @@
           "RBAC Demo"
         ],
         "summary": "Vip Only",
-        "operationId": "vip_only_api_rbac_vip_get",
+        "operationId": "get_api_rbac_vip",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -7764,7 +7769,7 @@
           "Metrics"
         ],
         "summary": "글로벌 플랫폼 메트릭 조회",
-        "operationId": "get_global_metrics_api_metrics_global_get",
+        "operationId": "get_api_metrics_global",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -7786,7 +7791,7 @@
         ],
         "summary": "글로벌 메트릭 SSE 스트림",
         "description": "Server-Sent Events (text/event-stream)\n\n- interval: seconds between emissions (min 2 / max 30 enforced)\n- event: \"metrics\"",
-        "operationId": "stream_global_metrics_api_metrics_stream_get",
+        "operationId": "get_api_metrics_stream",
         "parameters": [
           {
             "name": "interval",
@@ -7828,7 +7833,7 @@
         ],
         "summary": "Test Broadcast",
         "description": "테스트용 브로드캐스트 (관리자만)",
-        "operationId": "test_broadcast_api_realtime_test_broadcast_get",
+        "operationId": "get_api_realtime_test_broadcast",
         "security": [
           {
             "HTTPBearer": []
@@ -7884,7 +7889,7 @@
         ],
         "summary": "Root",
         "description": "Root endpoint",
-        "operationId": "root__get",
+        "operationId": "get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -7904,7 +7909,7 @@
         ],
         "summary": "Health Check",
         "description": "Health check endpoint",
-        "operationId": "health_check_health_get",
+        "operationId": "get_health",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -7926,7 +7931,7 @@
         ],
         "summary": "Kafka Last Messages",
         "description": "Return last consumed Kafka messages (debug).",
-        "operationId": "kafka_last_messages_api_kafka__debug_last_get",
+        "operationId": "get_api_kafka__debug_last",
         "parameters": [
           {
             "name": "limit",
@@ -7968,7 +7973,7 @@
         ],
         "summary": "Kafka Ready",
         "description": "Return whether the Kafka consumer is initialized and assigned partitions.",
-        "operationId": "kafka_ready_api_kafka__debug_ready_get",
+        "operationId": "get_api_kafka__debug_ready",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -7988,7 +7993,7 @@
         ],
         "summary": "Api Info",
         "description": "API information endpoint",
-        "operationId": "api_info_api_get",
+        "operationId": "get_api",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -8746,7 +8751,7 @@
         ],
         "title": "AttendanceHistory"
       },
-      "Body_refresh_api_auth_refresh_post": {
+      "Body_post_api_auth_refresh": {
         "properties": {
           "refresh_token": {
             "anyOf": [
@@ -8761,7 +8766,7 @@
           }
         },
         "type": "object",
-        "title": "Body_refresh_api_auth_refresh_post"
+        "title": "Body_post_api_auth_refresh"
       },
       "BulkActions": {
         "properties": {
@@ -13364,6 +13369,18 @@
           "experience": {
             "type": "integer",
             "title": "Experience"
+          },
+          "last_30d_active_days": {
+            "type": "integer",
+            "title": "Last 30D Active Days",
+            "description": "최근 30일 활성 일수 (UTC 00:00 경계 기준). UserAction.created_at의 일 단위 distinct로 산출하며, 예외적으로 UserAction이 비어있는 케이스는 GameHistory.created_at 기반 distinct로 보정.",
+            "default": 0
+          },
+          "lifetime_active_days": {
+            "type": "integer",
+            "title": "Lifetime Active Days",
+            "description": "평생 누적 활성 일수 (UTC 00:00 경계 기준). UserAction.created_at의 일 단위 distinct로 산출하며, 예외적으로 UserAction이 비어있는 케이스는 GameHistory.created_at 기반 distinct로 보정.",
+            "default": 0
           }
         },
         "type": "object",
@@ -13376,7 +13393,7 @@
           "experience"
         ],
         "title": "UserStatsResponse",
-        "description": "User statistics response"
+        "description": "User statistics response\n\nNotes:\n- last_30d_active_days / lifetime_active_days are computed from UserAction distinct UTC dates.\n- Timezone: UTC 00:00 day boundary.\n- Activity scope: all actions recorded in UserAction."
       },
       "UserSummary": {
         "properties": {

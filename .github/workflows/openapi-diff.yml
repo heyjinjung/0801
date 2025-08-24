@@ -24,12 +24,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r cc-webapp/backend/requirements.txt
-          pip install pytest requests
 
-      - name: Backup baseline before export
+      - name: Read committed snapshot as baseline
         run: |
           mkdir -p artifacts
-          if [ -f cc-webapp/backend/current_openapi.json ]; then cp cc-webapp/backend/current_openapi.json artifacts/openapi_baseline.json; else echo '{}' > artifacts/openapi_baseline.json; fi
+          if [ -f cc-webapp/backend/app/openapi_snapshot.json ]; then cp cc-webapp/backend/app/openapi_snapshot.json artifacts/openapi_baseline.json; else echo '{}' > artifacts/openapi_baseline.json; fi
 
       - name: Export OpenAPI (FastAPI app)
         working-directory: cc-webapp/backend/app
@@ -47,12 +46,79 @@ jobs:
           diff = difflib.unified_diff(before.splitlines(True), after.splitlines(True), fromfile='baseline', tofile='current')
           pathlib.Path('artifacts/openapi.diff.txt').write_text(''.join(diff), encoding='utf-8')
 
-      - name: Run OpenAPI contract test
-        working-directory: cc-webapp/backend
-        env:
-          PYTHONPATH: .
+      - name: Check for breaking changes (removed paths/methods)
+        id: breaking
+        shell: python
         run: |
-          pytest -q tests -k openapi_diff_ci --maxfail=1
+          import json, sys, pathlib
+          base = json.loads(pathlib.Path('artifacts/openapi_baseline.json').read_text('utf-8') or '{}')
+          curr = json.loads(pathlib.Path('cc-webapp/backend/current_openapi.json').read_text('utf-8') or '{}')
+          bpaths = (base.get('paths') or {})
+          cpaths = (curr.get('paths') or {})
+          removed_paths = sorted(set(bpaths.keys()) - set(cpaths.keys()))
+          removed_ops = []
+          for p, ops in bpaths.items():
+            for m in (ops or {}).keys():
+              if p in cpaths and m not in (cpaths[p] or {}):
+                removed_ops.append((p, m))
+          # --- Schema-level comparisons (types/required) ---
+          def _schemas(d):
+            return (d.get('components') or {}).get('schemas') or {}
+          bschemas = _schemas(base)
+          cschemas = _schemas(curr)
+          breaking_schemas = []
+          changed_types = []
+          changed_required = []
+          for name, bsch in bschemas.items():
+            csch = cschemas.get(name)
+            if not csch:
+              # Removal of a referenced schema could be breaking; mark
+              breaking_schemas.append({'schema': name, 'reason': 'removed'})
+              continue
+            # Compare top-level type for object schemas
+            bt = bsch.get('type')
+            ct = csch.get('type')
+            if bt and ct and bt != ct:
+              changed_types.append({'schema': name, 'from': bt, 'to': ct})
+            # For objects, compare properties' types and required sets
+            if (bsch.get('type') == 'object') and isinstance(bsch.get('properties'), dict) and isinstance(csch.get('properties'), dict):
+              bprops = bsch.get('properties') or {}
+              cprops = csch.get('properties') or {}
+              # Required changes: adding a required field is breaking; removing a required could be non-breaking but flag
+              breq = set(bsch.get('required') or [])
+              creq = set(csch.get('required') or [])
+              added_required = sorted(list(creq - breq))
+              removed_required = sorted(list(breq - creq))
+              if added_required:
+                changed_required.append({'schema': name, 'added_required': added_required})
+              if removed_required:
+                changed_required.append({'schema': name, 'removed_required': removed_required})
+              # Property type changes
+              for prop, bp in bprops.items():
+                if prop in cprops:
+                  cp = cprops[prop]
+                  bt = (bp or {}).get('type')
+                  ct = (cp or {}).get('type')
+                  if bt and ct and bt != ct:
+                    changed_types.append({'schema': name, 'property': prop, 'from': bt, 'to': ct})
+          summary = {
+            'removed_paths': removed_paths,
+            'removed_ops': removed_ops,
+            'removed_paths_count': len(removed_paths),
+            'removed_ops_count': len(removed_ops),
+            'baseline_paths': len(bpaths),
+            'current_paths': len(cpaths),
+            'schema_removed': breaking_schemas,
+            'schema_type_changes': changed_types,
+            'schema_required_changes': changed_required,
+          }
+          pathlib.Path('artifacts/breaking_summary.json').write_text(json.dumps(summary, indent=2), encoding='utf-8')
+          is_breaking = bool(removed_paths or removed_ops or breaking_schemas or any('added_required' in it for it in changed_required) or any('property' in it for it in changed_types))
+          if is_breaking:
+            print('BREAKING CHANGES DETECTED')
+            sys.exit(1)
+          else:
+            print('No breaking removals detected.')
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -62,6 +128,7 @@ jobs:
             artifacts/openapi_baseline.json
             cc-webapp/backend/current_openapi.json
             artifacts/openapi.diff.txt
+            artifacts/breaking_summary.json
 
       - name: Comment on PR with summary
         if: github.event_name == 'pull_request'
@@ -69,14 +136,20 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const path = require('path');
             function read(p){ try { return fs.readFileSync(p, 'utf8'); } catch { return ''; } }
             const baseline = read('artifacts/openapi_baseline.json');
             const current = read('cc-webapp/backend/current_openapi.json');
             const diff = read('artifacts/openapi.diff.txt');
-            const body = `### OpenAPI Diff Report\n\n- Baseline size: ${baseline.length} bytes\n- Current size: ${current.length} bytes\n\n<details><summary>Unified Diff</summary>\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n` +
-              "\n\n```diff\n" + diff.substring(0, 60000) + "\n```\n\n" +
-              `</details>`;
+            let breaking = {};
+            try { breaking = JSON.parse(read('artifacts/breaking_summary.json') || '{}'); } catch {}
+            const removedPaths = (breaking.removed_paths || []).map(p => `- ${p}`).join('\n');
+            const removedOps = (breaking.removed_ops || []).map(x => `- ${x[1].toUpperCase()} ${x[0]}`).join('\n');
+            const header = `### OpenAPI Diff Report\n\n- Baseline size: ${baseline.length} bytes\n- Current size: ${current.length} bytes\n- Baseline paths: ${breaking.baseline_paths || 'n/a'}\n- Current paths: ${breaking.current_paths || 'n/a'}\n- Removed paths: ${breaking.removed_paths_count || 0}\n- Removed operations: ${breaking.removed_ops_count || 0}`;
+            const typeChanges = (breaking.schema_type_changes || []).map(x => `- ${x.schema}${x.property?'.'+x.property:''}: ${x.from} -> ${x.to}`).join('\n');
+            const reqChanges = (breaking.schema_required_changes || []).map(x => `- ${x.schema}: ${x.added_required?('added required '+x.added_required.join(', ')):''}${x.removed_required?(' removed required '+x.removed_required.join(', ')):''}`).join('\n');
+            const removedSection = (removedPaths || removedOps) ? `\n\n#### Breaking removals\n${removedPaths}\n${removedOps}` : '';
+            const schemaSection = (typeChanges || reqChanges) ? `\n\n#### Schema changes\n${typeChanges}\n${reqChanges}` : '';
+            const body = header + removedSection + schemaSection + `\n\n<details><summary>Unified Diff</summary>\n\n` + "\n\n```diff\n" + diff.substring(0, 60000) + "\n```\n\n" + `</details>`;
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,

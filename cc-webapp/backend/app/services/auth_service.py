@@ -78,7 +78,10 @@ class AuthService:
             "iat": int(now.timestamp()),
             "jti": str(uuid.uuid4()),
         })
-        encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+        # Include rotation hint in header (kid)
+        from app.core.config import settings
+        headers = {"kid": getattr(settings, "KEY_ROTATION_VERSION", "v1")}
+        encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM, headers=headers)
         # Debug: verify signature locally
         try:
             import base64, hmac, hashlib

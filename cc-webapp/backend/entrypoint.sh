@@ -58,6 +58,16 @@ if [ "$USERS_EXISTS" = "f" ] && [ "$CUR_VER" = "79b9722f373c" ]; then
   PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -p $DB_PORT -d $DB_NAME -c "DELETE FROM alembic_version;" || true
 fi
 
+# If alembic_version is empty but core tables already exist, seed baseline to skip re-creating base tables
+if [ -z "$CUR_VER" ] || [ "$CUR_VER" = "" ]; then
+  SEEDED_USERS_EXISTS=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -p $DB_PORT -d $DB_NAME -tAc "SELECT to_regclass('public.users') IS NOT NULL;" | tr -d '[:space:]')
+  if [ "$SEEDED_USERS_EXISTS" = "t" ]; then
+    echo "alembic_version empty but core table 'users' exists. Seeding baseline revision 79b9722f373c..."
+    PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -p $DB_PORT -d $DB_NAME -c "INSERT INTO alembic_version (version_num) VALUES ('79b9722f373c');" || true
+    CUR_VER=79b9722f373c
+  fi
+fi
+
 # Alembic 마이그레이션 실행
 echo "Running database migrations..."
 alembic upgrade head || { echo "Alembic migration failed"; exit 1; }

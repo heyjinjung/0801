@@ -1,6 +1,8 @@
 import time
 from starlette.testclient import TestClient
 from app.main import app
+from app.database import SessionLocal
+from app.models.auth_models import User as _User
 
 
 def _signup(client: TestClient):
@@ -25,6 +27,19 @@ def test_distribute_tokens_and_idempotency():
     client = TestClient(app)
     access_token, user_id = _signup(client)
     headers = {"Authorization": f"Bearer {access_token}"}
+    # Elevate to PREMIUM to satisfy RBAC on /api/rewards/distribute
+    try:
+        db = SessionLocal()
+        u = db.query(_User).filter(_User.id == user_id).first()
+        if u and getattr(u, "user_rank", "STANDARD") != "PREMIUM":
+            u.user_rank = "PREMIUM"
+            db.add(u)
+            db.commit()
+    finally:
+        try:
+            db.close()
+        except Exception:
+            pass
 
     # Capture starting balance
     r_profile = client.get("/api/users/profile", headers=headers)
@@ -39,14 +54,14 @@ def test_distribute_tokens_and_idempotency():
         "source_description": "promo:test",
         "idempotency_key": idem,
     }
-    r = client.post("/api/rewards/distribute", json=payload)
+    r = client.post("/api/rewards/distribute", json=payload, headers=headers)
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["reward_type"] in ("TOKEN", "COIN")
     assert int(body["reward_value"]) == 250
 
     # Idempotent replay should not double-grant
-    r2 = client.post("/api/rewards/distribute", json=payload)
+    r2 = client.post("/api/rewards/distribute", json=payload, headers=headers)
     assert r2.status_code == 200, r2.text
     body2 = r2.json()
     assert body2["reward_id"] == body["reward_id"]
@@ -61,6 +76,20 @@ def test_distribute_tokens_and_idempotency():
 def test_distribute_item_records_history():
     client = TestClient(app)
     access_token, user_id = _signup(client)
+    headers = {"Authorization": f"Bearer {access_token}"}
+    # Elevate to PREMIUM for RBAC
+    try:
+        db = SessionLocal()
+        u = db.query(_User).filter(_User.id == user_id).first()
+        if u and getattr(u, "user_rank", "STANDARD") != "PREMIUM":
+            u.user_rank = "PREMIUM"
+            db.add(u)
+            db.commit()
+    finally:
+        try:
+            db.close()
+        except Exception:
+            pass
 
     payload = {
         "user_id": user_id,
@@ -68,7 +97,7 @@ def test_distribute_item_records_history():
         "amount": 1,
         "source_description": "event:limited_skin",
     }
-    r = client.post("/api/rewards/distribute", json=payload)
+    r = client.post("/api/rewards/distribute", json=payload, headers=headers)
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["reward_type"] == "ITEM"

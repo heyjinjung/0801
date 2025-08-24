@@ -1,6 +1,6 @@
 """User Management API Endpoints"""
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional, List
@@ -26,13 +26,22 @@ class UserProfileResponse(BaseModel):
     is_active: bool
 
 class UserStatsResponse(BaseModel):
-    """User statistics response"""
+    """User statistics response
+
+    Notes:
+    - last_30d_active_days / lifetime_active_days are computed from UserAction distinct UTC dates.
+    - Timezone: UTC 00:00 day boundary.
+    - Activity scope: all actions recorded in UserAction.
+    """
     total_games_played: int
     total_tokens_earned: int
     total_tokens_spent: int
     win_rate: float
     level: int
     experience: int
+    # 새 표준 지표 (UTC 일 절단, UserAction 기반 distinct date)
+    last_30d_active_days: int
+    lifetime_active_days: int
 
 # Dependency injection
 def get_user_service(db = Depends(get_db)) -> UserService:
@@ -43,10 +52,21 @@ def get_user_service(db = Depends(get_db)) -> UserService:
 @router.get("/profile", response_model=UserResponse)
 async def get_profile(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    response: Response = None,
 ):
     """현재 로그인한 사용자 프로필 조회"""
     logger.info(f"API: GET /api/users/profile - user_id={current_user.id}")
+    # Soft deprecate this endpoint in favor of /api/auth/profile (canonical)
+    # Keep response shape unchanged to avoid breaking clients; add hint headers only.
+    try:
+        if response is not None:
+            response.headers["Deprecation"] = "true"
+            # Optional: RFC 8594 Link header to indicate the successor endpoint
+            response.headers["Link"] = "</api/auth/profile>; rel=\"successor-version\""
+    except Exception:
+        # Header setting is best-effort; never fail the request because of it.
+        pass
     return current_user
 
 @router.put("/profile", response_model=UserProfileResponse)
@@ -123,7 +143,9 @@ async def get_user_stats(
             total_tokens_spent=getattr(stats, 'total_tokens_spent', 0),
             win_rate=getattr(stats, 'win_rate', 0.0),
             level=getattr(stats, 'level', 1),
-            experience=getattr(stats, 'experience', 0)
+            experience=getattr(stats, 'experience', 0),
+            last_30d_active_days=getattr(stats, 'last_30d_active_days', 0),
+            lifetime_active_days=getattr(stats, 'lifetime_active_days', 0)
         )
     except Exception as e:
         raise HTTPException(

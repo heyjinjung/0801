@@ -59,6 +59,13 @@ engine = create_engine(
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+@pytest.fixture(scope="session")
+def db_engine():
+    """Provide a shared SQLAlchemy engine for tests.
+    This satisfies dependencies like db_session that expect a db_engine fixture.
+    """
+    return engine
+
 @pytest.fixture(scope="session", autouse=True)
 def setup_db():
     """테스트 데이터베이스 설정"""

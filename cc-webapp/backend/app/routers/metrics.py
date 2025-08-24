@@ -77,9 +77,10 @@ def get_global_metrics(db: Session = Depends(get_db)) -> GlobalMetricsResponse:
     spins_last_hour = db.execute(spins_q).scalar() or 0
 
     # big_wins_last_hour: rewards above threshold in last hour (configurable)
+    # NOTE: UserReward does not have 'created_at' or 'amount_gold'. Use 'claimed_at' and 'gold_amount'.
     threshold = int(os.getenv("BIG_WIN_THRESHOLD_GOLD", "1000"))
     big_wins_q = select(func.count()).select_from(UserReward).where(
-        (UserReward.created_at > one_hour_ago) & (UserReward.amount_gold != None) & (UserReward.amount_gold > threshold)
+        (UserReward.claimed_at > one_hour_ago) & (UserReward.gold_amount != None) & (UserReward.gold_amount > threshold)
     )
     big_wins_last_hour = db.execute(big_wins_q).scalar() or 0
 

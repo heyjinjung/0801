@@ -47,6 +47,22 @@ except Exception:  # pragma: no cover
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/games", tags=["Games"])
+# Legacy WS usage counter (Prometheus optional)
+try:
+    from prometheus_client import Counter  # type: ignore
+    _legacy_ws_conn_total = Counter(
+        'ws_legacy_games_connections_total',
+        'Total connections attempted to legacy /api/games/ws'
+    )
+    # 보강: 결과 라벨 분리 카운터 (역호환을 위해 별도 메트릭명 사용)
+    _legacy_ws_conn_by_result = Counter(
+        'ws_legacy_games_connections_by_result_total',
+        'Legacy /api/games/ws connections by result (accepted|rejected)',
+        ['result']
+    )
+except Exception:  # pragma: no cover
+    _legacy_ws_conn_total = None  # type: ignore
+    _legacy_ws_conn_by_result = None  # type: ignore
 
 # ---------------------------------------------------------------------------
 # 표준 사용자 액션 로깅 헬퍼
@@ -250,6 +266,30 @@ async def user_game_ws(
     websocket: WebSocket,
     token: Optional[str] = None,
 ):
+    # Feature flag: optionally disable legacy endpoint entirely
+    if not settings.ENABLE_LEGACY_GAMES_WS:
+        try:
+            if _legacy_ws_conn_total:
+                _legacy_ws_conn_total.inc()
+            if _legacy_ws_conn_by_result:
+                _legacy_ws_conn_by_result.labels(result='rejected').inc()
+        except Exception:
+            pass
+        # Accept then close with policy violation to surface deprecation clearly
+        await websocket.accept()
+        await websocket.close(code=4403)
+        # Log a structured warning for monitoring
+        logger.warning("legacy_ws_rejected: path=/api/games/ws enabled=%s", settings.ENABLE_LEGACY_GAMES_WS)
+        return
+    else:
+        try:
+            if _legacy_ws_conn_total:
+                _legacy_ws_conn_total.inc()
+            if _legacy_ws_conn_by_result:
+                _legacy_ws_conn_by_result.labels(result='accepted').inc()
+        except Exception:
+            pass
+        logger.warning("legacy_ws_used: /api/games/ws connection attempted (deprecated)")
     """사용자 개인 게임 이벤트 피드
 
     쿼리파라미터 token 또는 헤더 Authorization Bearer 지원 (FastAPI WebSocket은 Depends 간편사용 제한 -> 수동 검증)

@@ -1,3 +1,39 @@
+# 변경 요약 / 검증 / 다음 단계 (2025-08-23)
+
+변경 요약
+- 모니터링 네트워크 정합: Prometheus/Grafana를 애플리케이션 네트워크(0801_ccnet)에 연결. Prometheus scrape 타깃 cc_backend:8000 정상화.
+- OpenAPI 재수출: backend 컨테이너에서 python -m app.export_openapi 실행, 스냅샷 갱신 완료.
+- 테스트 수정: backend/tests/conftest.py에 db_engine 픽스처 추가로 pytest 실패 픽스.
+- SSE 스트림 오류 수정: /api/metrics/stream에서 UserReward 필드 오기 사용( created_at, amount_gold )을 모델 정의(claimed_at, gold_amount)로 교정.
+
+## 2025-08-23 모니터링/리얼타임 보강 (WS 라벨 메트릭 + 브로드캐스트 테스트)
+
+변경 요약
+- 레거시 게임 WS 접속 카운터 보강: `ws_legacy_games_connections_by_result_total{result=accepted|rejected}` 추가. 기존 `ws_legacy_games_connections_total`은 유지(역호환).
+- 리얼타임 허브 단위 테스트 추가: `app/tests/test_realtime_broadcast_stub.py`에서 `hub.broadcast`가 `user_id` 타겟 채널로 올바른 payload를 전달하는지 검증(StubWS로 send_text 캡처).
+
+검증 결과
+- 컨테이너 내 단일 테스트 통과: `pytest -q app/tests/test_realtime_broadcast_stub.py` → 1 passed.
+- OpenAPI/Alembic 스키마 변경 없음(head 단일 유지). `/metrics` 노출 구성 그대로 유지.
+
+다음 단계
+- Grafana 패널에 신규 라벨 메트릭 반영: `sum by (result) (ws_legacy_games_connections_by_result_total)`로 accepted vs rejected 구분 시각화.
+- 로컬 검증: `/api/games/ws` 허용/차단 시나리오를 각각 1회 이상 시도 후 `/metrics`에서 두 카운터 라벨 증가 확인.
+- 필요 시 `api docs/20250808.md`에 메트릭 설명/운영 가이드(허용/차단 플래그와 대시보드 쿼리 예시) 추가.
+
+검증
+- Prometheus Targets: cc-webapp-backend(cc_backend:8000) health=up 확인(HTTP API /api/v1/targets).
+- Pytest: app/tests/test_openapi_diff_ci.py, tests/test_openapi_diff_ci.py, tests/test_main.py 합계 13개 테스트 전부 통과.
+- Alembic: heads=current=86171b66491f (단일 head) 확인.
+- SSE 스모크: 컨테이너 내 curl -N로 /api/metrics/stream 2초 간격 수신 확인(event: metrics 프레임 연속 수신).
+
+다음 단계
+- WS 스모크(상점/정산/웹훅): 브라우저에서 배지/토스트 표시 동작 체크 및 스크린샷 캡처.
+- Grafana 대시보드: 구매 지표 패널에 실데이터 유입 확인 및 경보룰 세부 튜닝.
+- CI: OpenAPI diff CI를 워크플로에 통합(스냅샷 아티팩트 업로드/PR 코멘트).
+
+---
+
 # Casino-Club F2P 프로젝트 Final 체크 & 트러블슈팅 기록
 
 **생성일**: 2025-08-19  

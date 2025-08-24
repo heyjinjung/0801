@@ -15,6 +15,7 @@ from ..dependencies import get_current_user
 from ..core.config import settings
 from ..services.admin_service import AdminService
 from ..services.limited_package_service import LimitedPackageService
+from ..security.audit import audit_log
 from datetime import datetime
 from sqlalchemy.orm import Session
 from app import models
@@ -768,6 +769,7 @@ async def add_user_tokens(
 async def admin_limited_toggle(req: LimitedToggleRequest, admin_user = Depends(require_admin_access)):
     if not LimitedPackageService.set_active(req.code, req.active):
         raise HTTPException(status_code=404, detail="Package not found")
+    audit_log("admin_limited_toggle", actor_id=getattr(admin_user, 'id', None), meta={"code": req.code, "active": req.active})
     return {"success": True}
 
 
@@ -782,6 +784,7 @@ async def admin_update_gacha_config(
     admin_user = Depends(require_admin_access),
     db: Session = Depends(get_db),
 ):
+    audit_log("admin_gacha_config_update", actor_id=getattr(admin_user, 'id', None), meta={"rarity_table": bool(body.rarity_table), "reward_pool": bool(body.reward_pool)})
     # Access GameService via a short import to update class-level config
     from ..services.gacha_service import GachaService
     rarity_table = None

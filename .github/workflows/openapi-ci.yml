@@ -1,0 +1,29 @@
+name: OpenAPI Contract CI
+on:
+  pull_request:
+    branches: [ "main" ]
+  push:
+    branches: [ "main" ]
+
+jobs:
+  openapi-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Compose up backend only
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.override.yml up -d backend
+      - name: Export OpenAPI from container
+        run: |
+          docker compose exec -T backend sh -lc "python -m app.export_openapi && ls -l app/current_openapi.json"
+          docker compose cp backend:/app/current_openapi.json cc-webapp/backend/app/current_openapi.json
+      - name: Upload schema artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-current
+          path: cc-webapp/backend/app/current_openapi.json
+      - name: Teardown
+        if: always()
+        run: docker compose down -v

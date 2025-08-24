@@ -18,9 +18,26 @@ def upgrade():
     dialect = bind.dialect.name
     inspector = sa.inspect(bind)
 
-    # Core composite indexes
-    op.create_index('ix_game_sessions_user_created', 'game_sessions', ['user_id', 'created_at'], unique=False)
-    op.create_index('ix_shop_transactions_user_created', 'shop_transactions', ['user_id', 'created_at'], unique=False)
+    # Core composite indexes (idempotent)
+    try:
+        gs_indexes = {ix.get('name') for ix in inspector.get_indexes('game_sessions')} if inspector.has_table('game_sessions') else set()
+    except Exception:
+        gs_indexes = set()
+    if inspector.has_table('game_sessions') and 'ix_game_sessions_user_created' not in gs_indexes:
+        try:
+            op.create_index('ix_game_sessions_user_created', 'game_sessions', ['user_id', 'created_at'], unique=False)
+        except Exception:
+            pass
+
+    try:
+        st_indexes = {ix.get('name') for ix in inspector.get_indexes('shop_transactions')} if inspector.has_table('shop_transactions') else set()
+    except Exception:
+        st_indexes = set()
+    if inspector.has_table('shop_transactions') and 'ix_shop_transactions_user_created' not in st_indexes:
+        try:
+            op.create_index('ix_shop_transactions_user_created', 'shop_transactions', ['user_id', 'created_at'], unique=False)
+        except Exception:
+            pass
 
     # Unique constraints
     if inspector.has_table('user_rewards'):

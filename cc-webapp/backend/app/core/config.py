@@ -101,6 +101,11 @@ class Settings(BaseSettings):
     # Feature Flags (미구현 기능 토글)
     ADULT_CONTENT_ENABLED: bool = False
     VIP_CONTENT_ENABLED: bool = False
+    # Legacy WS fallback toggle: when False, /api/games/ws rejects connections (monitor-only)
+    ENABLE_LEGACY_GAMES_WS: bool = True
+
+    # Security: key rotation version (propagated to JWT 'kid' header)
+    KEY_ROTATION_VERSION: str = os.getenv("KEY_ROTATION_VERSION", "v1")
 
     # Observability / APM
     SENTRY_DSN: str | None = os.getenv("SENTRY_DSN")

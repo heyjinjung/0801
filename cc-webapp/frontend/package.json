@@ -8,7 +8,8 @@
 		"prebuild": "node scripts/gen-build-id.mjs",
 		"build": "next build",
 		"start": "next start",
-		"lint": "next lint"
+		"lint": "next lint",
+		"test:e2e": "playwright test"
 	},
 	"dependencies": {
 		"@radix-ui/react-accordion": "^1.2.12",
@@ -48,6 +49,7 @@
 		"vaul": "^1.1.2"
 	},
 	"devDependencies": {
+		"@playwright/test": "^1.48.2",
 		"@tailwindcss/postcss": "^4.0.0",
 		"@types/node": "^20.10.0",
 		"@types/react": "^19.0.0",

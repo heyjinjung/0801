@@ -13,6 +13,7 @@ from app.core.config import settings
 from .. import models  # This should import UserReward and User
 from ..database import get_db
 from ..services.user_service import UserService
+from ..dependencies import require_min_rank  # RBAC: rank-based access control
 
 router = APIRouter(prefix="/api/rewards", tags=["Rewards"])
 
@@ -128,7 +129,9 @@ async def get_user_rewards(
 @router.post("/distribute", response_model=RewardItem, tags=["Rewards"])
 async def distribute_reward_to_user(
     request: RewardDistributionRequest,
-    db = Depends(get_db)
+    db = Depends(get_db),
+    # Require PREMIUM or higher for distribution endpoint (sensitive path)
+    current_user = Depends(require_min_rank("PREMIUM")),
 ):
     """
     Distributes a specific reward to a user.
