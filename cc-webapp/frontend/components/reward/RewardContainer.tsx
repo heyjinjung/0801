@@ -31,6 +31,7 @@ import ModernCard from '@/components/ui/data-display/ModernCard';
 import RewardResultModal from '@/components/ui/feedback/RewardResultModal';
 import { useWithReconcile } from '@/lib/sync';
 import { api } from '@/lib/unifiedApi';
+import { useGlobalStore, applyReward } from '@/store/globalStore';
 
 // 타입 정의
 interface UserLevel {
@@ -87,6 +88,8 @@ export default function RewardContainer() {
 
   // 서버 쓰기 후 권위 하이드레이트 보장 래퍼
   const withReconcile = useWithReconcile();
+  // 전역 스토어 디스패치 (즉시 보상 반영용)
+  const { dispatch } = useGlobalStore();
 
   // 일일 출석 데이터
   const dailyRewards = [
@@ -194,7 +197,10 @@ export default function RewardContainer() {
           headers: { 'X-Idempotency-Key': idemKey }
         })
       );
-
+      // 성공 응답에 awarded_gold가 있으면 전역 스토어에 즉시 반영
+      if (typeof res?.awarded_gold === 'number' && res?.idempotency_reused !== true) {
+        applyReward(dispatch, Number(res.awarded_gold) || 0, 'gold');
+      }
       const awardedGold = typeof res?.awarded_gold === 'number' ? res.awarded_gold : parseInt(reward.match(/\d+/)?.[0] || '0');
       setModal({
         isOpen: true,
@@ -227,7 +233,10 @@ export default function RewardContainer() {
           headers: { 'X-Idempotency-Key': idemKey }
         })
       );
-
+      // 성공 응답에 awarded_gold가 있으면 전역 스토어에 즉시 반영
+      if (typeof res?.awarded_gold === 'number' && res?.idempotency_reused !== true) {
+        applyReward(dispatch, Number(res.awarded_gold) || 0, 'gold');
+      }
       const rewardAmount = typeof res?.awarded_gold === 'number'
         ? res.awarded_gold
         : parseInt(reward.match(/\d+/)?.[0] || '0');

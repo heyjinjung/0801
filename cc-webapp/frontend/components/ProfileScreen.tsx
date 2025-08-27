@@ -12,6 +12,10 @@ import { api as unifiedApi } from '@/lib/unifiedApi';
 import useBalanceSync from '@/hooks/useBalanceSync';
 import { getTokens, setTokens } from '../utils/tokenStorage';
 import { useRealtimeProfile, useRealtimeStats } from '@/hooks/useRealtimeData';
+import { useGlobalStore, mergeProfile } from '@/store/globalStore';
+import { useWithReconcile } from '@/lib/sync';
+import { Input } from '@/components/ui/input';
+import { useUserSummary, useUserGold } from '@/hooks/useSelectors';
 
 interface ProfileScreenProps {
   onBack: () => void;
@@ -33,6 +37,11 @@ export function ProfileScreen({
   sharedUser,
   onUpdateUser,
 }: ProfileScreenProps) {
+  // 전역 store 셀렉터/디스패처
+  const { state: gState, dispatch } = useGlobalStore();
+  const gProfile = gState.profile;
+  const gStats = gState.gameStats || {};
+  const withReconcile = useWithReconcile();
   const { reconcileWith } = useBalanceSync({
     sharedUser,
     onUpdateUser,
@@ -41,12 +50,18 @@ export function ProfileScreen({
   // Realtime 전역 상태 구독(골드 등 핵심 값은 전역 프로필 우선 사용)
   const { profile: rtProfile, refresh: refreshRtProfile } = useRealtimeProfile();
   const { allStats: rtAllStats } = useRealtimeStats();
+  // 전역 셀렉터(우선): 핵심 표시값은 전역 스토어에서 직접 구독
+  const summary = useUserSummary();
+  const goldFromSelector = useUserGold();
   const [user, setUser] = useState(null);
   const [stats, setStats] = useState(null);
   const [balance, setBalance] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
+  // 닉네임 편집 상태
+  const [isEditingNickname, setIsEditingNickname] = useState(false);
+  const [nicknameDraft, setNicknameDraft] = useState(gProfile?.nickname || '');
   // 자동 실시간 동기화: 탭 포커스 복귀 또는 주기적 리프레시
   const AUTO_REFRESH_MS = 60_000; // 1분
 
@@ -379,10 +394,8 @@ export function ProfileScreen({
   const progressToNext =
     user?.experience && user?.maxExperience ? (user.experience / user.maxExperience) * 100 : 0;
 
-  // GOLD 표시값: Realtime 전역 상태(우선) → 공용 상태 → 로컬 balance 폴백
-  const displayGold: number | string = (
-    (rtProfile?.gold as any) ?? (sharedUser?.goldBalance as any) ?? (balance?.cyber_token_balance as any) ?? 0
-  );
+  // GOLD 표시값: 전역 셀렉터 우선(권장). 폴백은 개별 지점에서 필요 시 사용
+  const displayGold: number | string = (goldFromSelector as any) ?? 0;
 
   // 실시간 통계 파생값: 전역 stats 우선, 없으면 기존 로컬 stats 사용
   const pickNumber = (obj: Record<string, any> | undefined, keys: string[]): number => {
@@ -395,12 +408,37 @@ export function ProfileScreen({
   };
   const computeRtTotals = (): { totalGames?: number; totalWins?: number } => {
     try {
-      const entries = Object.values(rtAllStats || {}) as Array<{ data?: Record<string, any> }>;
+      // 전역 store의 gameStats를 우선 사용, 폴백으로 rtAllStats 사용
+      const pref = Object.keys(gStats).length ? gStats : (rtAllStats || {});
+      const entries = Object.values(pref || {}) as Array<{ data?: Record<string, any> }>;
       if (!entries?.length) return {};
       const totalGames = entries.reduce((acc, e) => acc + pickNumber(e?.data, ['total_games_played','total_games','games','plays','spins']), 0);
       const totalWins = entries.reduce((acc, e) => acc + pickNumber(e?.data, ['total_wins','wins']), 0);
       return { totalGames, totalWins };
     } catch { return {}; }
+  };
+
+  // 닉네임 저장 핸들러(withReconcile + 서버 응답으로 store 덮어쓰기)
+  const handleSaveNickname = async () => {
+    const next = (nicknameDraft || '').trim();
+    if (!next || next === gProfile?.nickname) {
+      setIsEditingNickname(false);
+      return;
+    }
+    try {
+      const res: any = await withReconcile(async (idemKey: string) =>
+        unifiedApi.post('users/profile', { nickname: next }, { headers: { 'X-Idempotency-Key': idemKey }, method: 'PATCH' as any })
+      );
+      if (res && (res.nickname || res.id)) {
+        mergeProfile(dispatch, res as any);
+      } else {
+        // 응답이 단순 성공 여부라면, 이후 hydrate에 의해 동기화됨
+      }
+      onAddNotification?.('닉네임이 업데이트되었습니다.');
+      setIsEditingNickname(false);
+    } catch (e:any) {
+      onAddNotification?.(e?.message || '닉네임 업데이트 실패');
+    }
   };
   const rtTotals = computeRtTotals();
   const displayTotalGames = (rtTotals.totalGames ?? 0) || (stats?.total_games_played ?? 0) || 0;
@@ -433,7 +471,7 @@ export function ProfileScreen({
 
           <div className="glass-effect rounded-xl p-3 border border-primary/20">
             <div className="text-right">
-              <div className="text-sm text-muted-foreground">{user?.nickname || '사용자'}</div>
+              <div className="text-sm text-muted-foreground">{summary.nickname || '사용자'}</div>
               <div className="text-lg font-bold text-primary">프로필</div>
             </div>
           </div>
@@ -460,14 +498,14 @@ export function ProfileScreen({
                 {/* 🎯 닉네임 (단순하게) */}
                 <div>
                   <h2 className="text-4xl font-black text-gradient-primary mb-4">
-                    {user?.nickname || '사용자'}
+                    {summary.nickname || '사용자'}
                   </h2>
 
                   {/* 🎯 연속출석일만 표시 */}
                   <div className="flex justify-center">
                     <Badge className="bg-success/20 text-success border-success/30 px-4 py-2 text-lg">
                       <Flame className="w-5 h-5 mr-2" />
-                      {user?.dailyStreak || 0}일 연속 출석
+                      {summary.dailyStreak || 0}일 연속 출석
                     </Badge>
                   </div>
                 </div>

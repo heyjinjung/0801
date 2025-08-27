@@ -11,6 +11,7 @@ import {
   useGlobalStore,
   setProfile,
   setHydrated,
+  applyReward,
 } from "../store/globalStore";
 
 export async function hydrateProfile(dispatch: ReturnType<typeof useGlobalStore>["dispatch"]) {
@@ -71,6 +72,9 @@ export function RealtimeSyncProvider(props: { children?: React.ReactNode }) {
     let closed = false;
     let lastHydrate = 0;
     const minInterval = 600; // ms, 잦은 재하이드레이트 방지
+    // 최근 보상 이벤트 중복 억제(간단 TTL)
+    const recentRewardTimestamps: number[] = [];
+    const REWARD_TTL = 1500; // 1.5s 내 중복 억제
 
     function toWs(origin: string) {
       return origin.replace(/^http/i, "ws");
@@ -81,6 +85,33 @@ export function RealtimeSyncProvider(props: { children?: React.ReactNode }) {
       if (now - lastHydrate < minInterval) return;
       lastHydrate = now;
       hydrateProfile(dispatch);
+    }
+
+    function tryApplyRewardFromMessage(msg: any) {
+      try {
+        if (!msg || msg?.type !== "reward_granted") return;
+        // 중복 처리 방지: 최근 일정 시간 내 동일 타임스탬프/양의 보상만 적용
+        const ts = Number(msg?.timestamp || Date.now());
+        const now = Date.now();
+        // TTL 정리
+        for (let i = recentRewardTimestamps.length - 1; i >= 0; i -= 1) {
+          if (now - recentRewardTimestamps[i] > REWARD_TTL) recentRewardTimestamps.splice(i, 1);
+        }
+        if (recentRewardTimestamps.some(t => Math.abs(ts - t) < 200)) {
+          return; // 너무 근접한 중복 이벤트로 간주
+        }
+        const rawAmount = (msg?.awarded_gold ?? msg?.gold ?? msg?.amount);
+        const amount = Number(rawAmount);
+        const currency = (msg?.currency === 'gems') ? 'gems' : 'gold';
+        const reused = Boolean(msg?.idempotency_reused || msg?.reused);
+        if (!Number.isFinite(amount) || amount <= 0) return;
+        if (reused) return; // 멱등 재사용은 즉시반영 스킵
+        // 즉시 반영 후 TTL 큐에 기록, 곧이어 hydrate로 권위값 동기화
+        applyReward(dispatch, amount, currency as any);
+        recentRewardTimestamps.push(ts);
+      } catch {
+        // noop
+      }
     }
 
     try {
@@ -98,6 +129,8 @@ export function RealtimeSyncProvider(props: { children?: React.ReactNode }) {
             case "profile_update":
             case "purchase_update":
             case "reward_granted":
+              // 즉시 보상 반영(있으면) → 권위 재하이드레이트로 최종 일치
+              tryApplyRewardFromMessage(msg);
             case "game_update":
               safeHydrate();
               break;
