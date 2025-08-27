@@ -1,8 +1,9 @@
 from playwright.sync_api import sync_playwright
-import time, uuid, sys, json
+import time, uuid, sys, json, os
 
-FRONTEND_BASE = "http://localhost:3000"
-BACKEND_BASE = "http://localhost:8000"
+# 컨테이너/호스트 모두에서 동작하도록 환경변수 우선 사용
+FRONTEND_BASE = os.getenv("FRONTEND_BASE", "http://localhost:3000")
+BACKEND_BASE = os.getenv("BACKEND_BASE", "http://localhost:8000")
 
 # UI routes to visit for each game
 GAME_ROUTES = {

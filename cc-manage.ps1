@@ -301,6 +301,7 @@ function Show-Help {
     Write-Host "  health      Probe http://localhost:8000/health and :3000" -ForegroundColor White
     Write-Host "  db-check    Verify PostgreSQL connectivity (port, pg_isready, SELECT 1)" -ForegroundColor White
     Write-Host "  tools       Manage monitoring tools (usage: tools start|stop|status)" -ForegroundColor White
+    Write-Host "  e2e         Run containerized Python E2E (game + WS smoke)" -ForegroundColor White
     Write-Host "  help        Show this help" -ForegroundColor White
     Write-Host "" 
     Write-Host "Examples:" -ForegroundColor Cyan
@@ -328,6 +329,23 @@ switch ($Command) {
             "status" { Tools-Status }
             default { Write-Host "Usage: ./cc-manage.ps1 tools <start|stop|status>" -ForegroundColor Yellow }
         }
+    }
+    "e2e" {
+        Detect-Compose
+        $composeArgs = Get-ComposeArgs
+        # Build E2E image and run once
+        Compose @composeArgs -f docker-compose.e2e.yml build e2e
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        # Ensure network and services are up
+        Compose @composeArgs up -d frontend backend
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        # Run E2E container and capture exit code
+        Compose @composeArgs -f docker-compose.e2e.yml up --abort-on-container-exit --exit-code-from e2e e2e
+        $code = $LASTEXITCODE
+        # Cleanup E2E container (keep app services running)
+        Compose @composeArgs -f docker-compose.e2e.yml down
+        if ($code -ne 0) { Write-Host "E2E failed with exit code $code" -ForegroundColor Red; exit $code }
+        Write-Host "E2E passed" -ForegroundColor Green
     }
     "help" { Show-Help }
     default { Show-Help }

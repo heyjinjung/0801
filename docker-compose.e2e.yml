@@ -1,0 +1,24 @@
+services:
+  e2e:
+    build:
+      context: .
+      dockerfile: ci/playwright/Dockerfile
+    container_name: cc_e2e
+    environment:
+      FRONTEND_BASE: http://frontend:3000
+      BACKEND_BASE: http://backend:8000
+    volumes:
+      - ./:/workspace
+      - ./logs/playwright:/workspace/logs:rw
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      ccnet:
+        aliases:
+          - e2e
+    entrypoint: ["bash", "ci/playwright/run_e2e.sh"]
+
+networks:
+  ccnet:
+    external: true
