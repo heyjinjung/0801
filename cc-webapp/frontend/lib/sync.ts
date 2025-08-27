@@ -14,6 +14,8 @@ import {
   setProfile,
   setHydrated,
   applyReward,
+  mergeProfile,
+  pushNotification,
 } from "../store/globalStore";
 
 export async function hydrateProfile(dispatch: ReturnType<typeof useGlobalStore>["dispatch"]) {
@@ -89,7 +91,7 @@ export function RealtimeSyncProvider(props: { children?: React.ReactNode }) {
       hydrateProfile(dispatch);
     }
 
-    function tryApplyRewardFromMessage(msg: any) {
+  function tryApplyRewardFromMessage(msg: any) {
       try {
         if (!msg || msg?.type !== "reward_granted") return;
         // 중복 처리 방지: 최근 일정 시간 내 동일 타임스탬프/양의 보상만 적용
@@ -116,6 +118,34 @@ export function RealtimeSyncProvider(props: { children?: React.ReactNode }) {
       }
     }
 
+    function tryApplyProfileDelta(msg: any) {
+      try {
+        if (!msg || msg?.type !== 'profile_update') return;
+        const ch = msg?.changes || {};
+        const raw = ch.gold_balance ?? ch.balance ?? ch.cyber_token_balance ?? ch.tokens;
+        if (raw !== undefined && Number.isFinite(Number(raw))) {
+          mergeProfile(dispatch, { goldBalance: Number(raw) });
+        }
+      } catch { /* noop */ }
+    }
+
+    function maybeNotifyPurchase(msg: any) {
+      try {
+        if (!msg || msg?.type !== 'purchase_update') return;
+        const status = String(msg.status || 'unknown');
+        const product = msg.product_id ? String(msg.product_id) : undefined;
+        const amount = msg.amount;
+        const reason = msg.reason_code;
+        let text = '';
+        if (status === 'success') text = product ? `구매 성공: ${product}` : '구매 성공';
+        else if (status === 'pending') text = product ? `구매 대기중: ${product}` : '구매 대기중';
+        else if (status === 'idempotent_reuse') text = '중복 요청 재사용 처리';
+        else if (status === 'failed') text = `구매 실패${reason ? ` (${reason})` : ''}`;
+        else text = `구매 상태: ${status}`;
+        pushNotification(dispatch, { type: 'purchase', message: text, product, amount, status, reason });
+      } catch { /* noop */ }
+    }
+
     try {
       // 인증 토큰 확인 후, 서버의 /api/realtime/sync 엔드포인트로 연결
       const token = getAccessToken();
@@ -134,12 +164,19 @@ export function RealtimeSyncProvider(props: { children?: React.ReactNode }) {
           const msg = JSON.parse(ev.data);
           const type = msg?.type;
           switch (type) {
-            case "profile_update":
-            case "purchase_update":
-            case "reward_granted":
-              // 즉시 보상 반영(있으면) → 권위 재하이드레이트로 최종 일치
+            case 'reward_granted':
               tryApplyRewardFromMessage(msg);
-            case "game_update":
+              safeHydrate();
+              break;
+            case 'profile_update':
+              tryApplyProfileDelta(msg);
+              safeHydrate();
+              break;
+            case 'purchase_update':
+              maybeNotifyPurchase(msg);
+              safeHydrate();
+              break;
+            case 'game_update':
               safeHydrate();
               break;
             default:

@@ -3,6 +3,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Settings, Bell } from 'lucide-react';
+import ShopBadge from '@/components/ShopBadge';
 import { useRouter } from 'next/navigation';
 
 interface AppHeaderProps {
@@ -51,6 +52,8 @@ export default function AppHeader({
       </div>
       
       <div className="flex items-center gap-2">
+        {/* 구매 알림 배지 */}
+        <ShopBadge />
         {showNotifications && (
           <button 
             onClick={handleOpenNotifications}
