@@ -28,6 +28,7 @@ import { User, GameItem } from '../types';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
+import { useGlobalStore } from '@/store/globalStore';
 
 interface InventoryScreenProps {
   user: User;
@@ -41,9 +42,12 @@ export function InventoryScreen({ user, onBack, onUpdateUser, onAddNotification 
   const [viewMode, setViewMode] = useState('grid' as 'grid' | 'list');
   const [selectedItem, setSelectedItem] = useState(null as GameItem | null);
   const [showItemModal, setShowItemModal] = useState(false);
+  // 서버 권위 재조정된 글로벌 인벤토리 우선 사용
+  const { state } = useGlobalStore();
+  const inventory = (state?.inventory && state.inventory.length ? state.inventory : user.inventory) as any[];
 
-  // 간단한 검색 필터링만
-  const filteredItems = user.inventory
+  // 간단한 검색 필터링만 (글로벌 스토어 우선)
+  const filteredItems = inventory
     .filter(item => {
       const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            item.description.toLowerCase().includes(searchQuery.toLowerCase());
@@ -132,15 +136,15 @@ export function InventoryScreen({ user, onBack, onUpdateUser, onAddNotification 
   // };
 
   const categoryStats = {
-    all: user.inventory.length,
-    skin: user.inventory.filter(item => item.type === 'skin').length,
-    powerup: user.inventory.filter(item => item.type === 'powerup').length,
-    currency: user.inventory.filter(item => item.type === 'currency').length,
-    collectible: user.inventory.filter(item => item.type === 'collectible').length,
-  character: user.inventory.filter(item => (item.type as string) === 'character').length,
-  weapon: user.inventory.filter(item => (item.type as string) === 'weapon').length,
-  premium: user.inventory.filter(item => (item.type as string) === 'premium').length,
-  special: user.inventory.filter(item => (item.type as string) === 'special').length
+    all: inventory.length,
+    skin: inventory.filter(item => item.type === 'skin').length,
+    powerup: inventory.filter(item => item.type === 'powerup').length,
+    currency: inventory.filter(item => item.type === 'currency').length,
+    collectible: inventory.filter(item => item.type === 'collectible').length,
+    character: inventory.filter(item => (item.type as string) === 'character').length,
+    weapon: inventory.filter(item => (item.type as string) === 'weapon').length,
+    premium: inventory.filter(item => (item.type as string) === 'premium').length,
+    special: inventory.filter(item => (item.type as string) === 'special').length
   };
 
   return (
@@ -192,7 +196,7 @@ export function InventoryScreen({ user, onBack, onUpdateUser, onAddNotification 
               <h1 className="text-xl lg:text-2xl font-bold text-gradient-primary">
                 보유 아이템
               </h1>
-              <p className="text-sm text-muted-foreground">총 {user.inventory.length}개 아이템</p>
+              <p className="text-sm text-muted-foreground">총 {inventory.length}개 아이템</p>
             </div>
           </div>
 

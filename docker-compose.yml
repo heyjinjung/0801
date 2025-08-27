@@ -147,6 +147,8 @@ services:
       ALLOW_PLAINTEXT_LISTENER: "yes"
     depends_on:
       - zookeeper
+    ports:
+      - "9092:9092"
     networks:
       ccnet:
         aliases:

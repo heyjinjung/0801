@@ -240,16 +240,6 @@ export function applyReward(dispatch: DispatchFn, amount: number, currency: 'gol
     dispatch({ type: "APPLY_REWARD", amount, currency });
 }
 
-// 실시간/이벤트 노티 추가
-export function pushNotification(
-    dispatch: DispatchFn,
-    item: { id?: string; type: string; message: string; at?: string } & Record<string, any>
-) {
-    const safeId = item.id || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const at = item.at || new Date().toISOString();
-    dispatch({ type: "PUSH_NOTIFICATION", item: { ...item, id: safeId, at, type: item.type, message: item.message } as any });
-}
-
 // 서버 권위 재하이드레이트
 export async function hydrateFromServer(dispatch: DispatchFn) {
     try {

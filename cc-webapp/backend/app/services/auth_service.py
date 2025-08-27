@@ -10,7 +10,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import OperationalError, ProgrammingError
+from sqlalchemy.exc import OperationalError
 from ..models.auth_models import User, LoginAttempt, UserSession
 from ..models.token_blacklist import TokenBlacklist
 from ..schemas.auth import TokenData, UserCreate, UserLogin, AdminLogin
@@ -237,44 +237,16 @@ class AuthService:
     def is_login_locked(db: Session, site_id: str) -> bool:
         """최근 실패 횟수로 로그인 잠금 여부 판단"""
         cutoff = datetime.utcnow() - timedelta(minutes=LOGIN_LOCKOUT_MINUTES)
-        try:
-            failed_count = (
-                db.query(LoginAttempt)
-                .filter(
-                    LoginAttempt.site_id == site_id,
-                    LoginAttempt.success == False,
-                    LoginAttempt.created_at >= cutoff,
-                )
-                .count()
+        failed_count = (
+            db.query(LoginAttempt)
+            .filter(
+                LoginAttempt.site_id == site_id,
+                LoginAttempt.success == False,
+                LoginAttempt.created_at >= cutoff,
             )
-            return failed_count >= LOGIN_MAX_FAILED_ATTEMPTS
-        except (OperationalError, ProgrammingError) as e:
-            # Fresh DBs may not have login_attempts yet; treat as not locked.
-            # Best-effort: auto-create table to avoid future errors (same DDL as record_login_attempt)
-            try:
-                db.rollback()
-            except Exception:
-                pass
-            try:
-                from sqlalchemy import text
-                db.execute(text("""
-                    CREATE TABLE IF NOT EXISTS login_attempts (
-                        id SERIAL PRIMARY KEY,
-                        site_id VARCHAR(50) NOT NULL,
-                        success BOOLEAN NOT NULL,
-                        ip_address VARCHAR(45),
-                        user_agent TEXT,
-                        created_at TIMESTAMP DEFAULT NOW(),
-                        failure_reason VARCHAR(100)
-                    );
-                """))
-                db.commit()
-            except Exception:
-                try:
-                    db.rollback()
-                except Exception:
-                    pass
-            return False
+            .count()
+        )
+        return failed_count >= LOGIN_MAX_FAILED_ATTEMPTS
 
     @staticmethod
     def record_login_attempt(
@@ -467,16 +439,9 @@ class AuthService:
     @staticmethod
     def update_last_login(db: Session, user: User) -> None:
         """마지막 로그인 시간 업데이트"""
-        try:
-            user.last_login = datetime.utcnow()
-            db.commit()
-            db.refresh(user)
-        except Exception:
-            # Non-fatal: do not block login on timestamp update errors (e.g., schema drift)
-            try:
-                db.rollback()
-            except Exception:
-                pass
+        user.last_login = datetime.utcnow()
+        db.commit()
+        db.refresh(user)
     
     @staticmethod
     def get_current_user(db: Session, credentials: HTTPAuthorizationCredentials) -> User:

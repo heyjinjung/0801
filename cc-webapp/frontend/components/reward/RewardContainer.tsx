@@ -29,9 +29,6 @@ import Tabs from '@/components/ui/navigation/Tabs';
 import { Button } from '@/components/ui/basic/button';
 import ModernCard from '@/components/ui/data-display/ModernCard';
 import RewardResultModal from '@/components/ui/feedback/RewardResultModal';
-import { useWithReconcile } from '@/lib/sync';
-import { api } from '@/lib/unifiedApi';
-import { useGlobalStore, applyReward } from '@/store/globalStore';
 
 // 타입 정의
 interface UserLevel {
@@ -85,11 +82,6 @@ export default function RewardContainer() {
     title: '',
     message: '',
   } as ModalState);
-
-  // 서버 쓰기 후 권위 하이드레이트 보장 래퍼
-  const withReconcile = useWithReconcile();
-  // 전역 스토어 디스패치 (즉시 보상 반영용)
-  const { dispatch } = useGlobalStore();
 
   // 일일 출석 데이터
   const dailyRewards = [
@@ -189,86 +181,39 @@ export default function RewardContainer() {
   ];
 
   // 핸들러 함수들
-  const handleDailyRewardClaim = async (day: number, reward: string, type: string) => {
-    try {
-      // 서버 권위: /api/streak/claim (action_type optional, 기본값은 SLOT_SPIN이므로 DAILY_LOGIN 명시)
-      const res: any = await withReconcile(async (idemKey: string) =>
-        api.post('streak/claim', { action_type: 'DAILY_LOGIN' }, {
-          headers: { 'X-Idempotency-Key': idemKey }
-        })
-      );
-      // 성공 응답에 awarded_gold가 있으면 전역 스토어에 즉시 반영
-      if (typeof res?.awarded_gold === 'number' && res?.idempotency_reused !== true) {
-        applyReward(dispatch, Number(res.awarded_gold) || 0, 'gold');
+  const handleDailyRewardClaim = (day: number, reward: string, type: string) => {
+    const rewardAmount = parseInt(reward.match(/\d+/)?.[0] || '0');
+    setModal({
+      isOpen: true,
+      type: 'success',
+      title: '출석 보상 획득!',
+      message: `${day}일차 출석 보상을 성공적으로 받았습니다.`,
+      reward: {
+        type: type === 'token' ? 'token' : 'bonus',
+        amount: rewardAmount || undefined,
+        name: reward,
+        icon: type === 'token' ? <Coins className="w-6 h-6 text-yellow-400" /> : <Star className="w-6 h-6 text-blue-400" />
       }
-      const awardedGold = typeof res?.awarded_gold === 'number' ? res.awarded_gold : parseInt(reward.match(/\d+/)?.[0] || '0');
-      setModal({
-        isOpen: true,
-        type: 'success',
-        title: '출석 보상 획득!',
-        message: `${day}일차 출석 보상을 성공적으로 받았습니다.`,
-        reward: {
-          type: type === 'token' ? 'token' : 'bonus',
-          amount: awardedGold || undefined,
-          name: reward,
-          icon: type === 'token' ? <Coins className="w-6 h-6 text-yellow-400" /> : <Star className="w-6 h-6 text-blue-400" />
-        }
-      });
-    } catch (e: any) {
-      // 이미 수령한 경우 등(400) 처리
-      const detail = e?.response?.data?.detail || '이미 오늘 보상을 받았거나 조건이 충족되지 않았습니다.';
-      setModal({
-        isOpen: true,
-        type: 'error',
-        title: '보상 수령 실패',
-        message: typeof detail === 'string' ? detail : '보상 수령 중 문제가 발생했습니다.',
-      });
-    }
+    });
   };
 
-  const handleAchievementClaim = async (missionId: string, title: string, reward: string) => {
-    try {
-      const res: any = await withReconcile(async (idemKey: string) =>
-        api.post(`events/missions/claim/${missionId}`, {}, {
-          headers: { 'X-Idempotency-Key': idemKey }
-        })
-      );
-      // 성공 응답에 awarded_gold가 있으면 전역 스토어에 즉시 반영
-      if (typeof res?.awarded_gold === 'number' && res?.idempotency_reused !== true) {
-        applyReward(dispatch, Number(res.awarded_gold) || 0, 'gold');
+  const handleAchievementClaim = (title: string, reward: string) => {
+    const rewardAmount = parseInt(reward.match(/\d+/)?.[0] || '0');
+    setModal({
+      isOpen: true,
+      type: 'success',
+      title: '업적 달성!',
+      message: `"${title}" 업적을 완료했습니다!`,
+      reward: {
+        type: 'token',
+        amount: rewardAmount,
+        name: reward,
+        icon: <Trophy className="w-6 h-6 text-amber-400" />
       }
-      const rewardAmount = typeof res?.awarded_gold === 'number'
-        ? res.awarded_gold
-        : parseInt(reward.match(/\d+/)?.[0] || '0');
-
-      setModal({
-        isOpen: true,
-        type: 'success',
-        title: '업적 달성!',
-        message: `"${title}" 업적 보상을 수령했습니다.`,
-        reward: {
-          type: 'token',
-          amount: rewardAmount || undefined,
-          name: reward,
-          icon: <Trophy className="w-6 h-6 text-amber-400" />
-        }
-      });
-    } catch (e: any) {
-      const detail = e?.response?.data?.detail || '이미 수령했거나 조건이 충족되지 않았습니다.';
-      setModal({
-        isOpen: true,
-        type: 'error',
-        title: '업적 보상 실패',
-        message: typeof detail === 'string' ? detail : '업적 보상 수령 중 문제가 발생했습니다.',
-      });
-    }
+    });
   };
 
-  const handleLevelRewardClaim = async (level: number, reward: string) => {
-    // 권위 엔드포인트 미정: 우선 하이드레이트만 수행해 상태를 동기화합니다.
-    try {
-      await withReconcile(async () => api.get('auth/me'));
-    } catch {}
+  const handleLevelRewardClaim = (level: number, reward: string) => {
     const rewardAmount = parseInt(reward.match(/\d+/)?.[0] || '0');
     setModal({
       isOpen: true,
@@ -284,11 +229,7 @@ export default function RewardContainer() {
     });
   };
 
-  const handleAccumulatedRewardClaim = async (title: string, amount: string) => {
-    // 여러 출처의 누적 보상: 현재는 하이드레이트 기반으로 동기화만 수행
-    try {
-      await withReconcile(async () => api.get('auth/me'));
-    } catch {}
+  const handleAccumulatedRewardClaim = (title: string, amount: string) => {
     const rewardAmount = parseInt(amount.match(/\d+/)?.[0] || '0');
     setModal({
       isOpen: true,
@@ -474,7 +415,7 @@ export default function RewardContainer() {
                 }`}
                 onClick={() => {
                   if (achievement.completed) {
-                    handleAchievementClaim(achievement.id, achievement.title, achievement.reward);
+                    handleAchievementClaim(achievement.title, achievement.reward);
                   }
                 }}
                 style={{

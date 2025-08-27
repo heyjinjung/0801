@@ -1,9 +1,8 @@
 from playwright.sync_api import sync_playwright
-import time, uuid, sys, json, os, requests
+import time, uuid, sys, json
 
-# 컨테이너/호스트 모두에서 동작하도록 환경변수 우선 사용
-FRONTEND_BASE = os.getenv("FRONTEND_BASE", "http://localhost:3000")
-BACKEND_BASE = os.getenv("BACKEND_BASE", "http://localhost:8000")
+FRONTEND_BASE = "http://localhost:3000"
+BACKEND_BASE = "http://localhost:8000"
 
 # UI routes to visit for each game
 GAME_ROUTES = {
@@ -14,17 +13,21 @@ GAME_ROUTES = {
 }
 EVENT_ROUTE = '/events'
 
-def api_fetch(path, method='POST', data=None, headers=None):
-    """Server-side API call using requests to avoid browser CORS in tests."""
+def api_fetch(page, path, method='POST', data=None, headers=None):
+    # Always call backend API host directly to avoid Next.js 404 for server-rendered pages
     url = BACKEND_BASE + path
-    try:
-        res = requests.request(method=method, url=url, json=data, headers=headers or {}, timeout=15)
-        try:
-            return { 'status': res.status_code, 'json': res.json() }
-        except Exception:
-            return { 'status': res.status_code, 'text': res.text }
-    except requests.RequestException as e:
-        return { 'status': 0, 'error': str(e) }
+    # Playwright evaluate accepts a single argument to pass into the page function.
+    return page.evaluate(
+        """async (params) => {
+            const {url, method, data, headers} = params;
+            const opts = { method, headers: Object.assign({'content-type':'application/json'}, headers||{}) };
+            if (data) opts.body = JSON.stringify(data);
+            const res = await fetch(url, opts);
+            const text = await res.text();
+            try { return {status: res.status, json: JSON.parse(text)}; } catch(e) { return {status: res.status, text}; }
+        }""",
+        {"url": url, "method": method, "data": data, "headers": headers},
+    )
 
 
 def visit_or_api(page, ui_path, api_path, headers=None, action_name='visit'):
@@ -39,7 +42,7 @@ def visit_or_api(page, ui_path, api_path, headers=None, action_name='visit'):
         return True
     except Exception as e:
         print(f'UI {action_name} failed ({e}), trying API {api_path}')
-        res = api_fetch(api_path, 'POST', {}, headers)
+        res = api_fetch(page, api_path, 'POST', {}, headers)
         print(f'API {action_name} status', res.get('status'))
         return res.get('status') == 200
 
@@ -62,7 +65,7 @@ def run():
         page.goto(FRONTEND_BASE, wait_until='domcontentloaded')
 
         print("Signup via backend /api/auth/signup")
-        r = api_fetch('/api/auth/signup', 'POST', signup_payload)
+        r = api_fetch(page, '/api/auth/signup', 'POST', signup_payload)
         print('signup status', r['status'])
         # If phone already exists or other duplicate, attempt login fallback
         if r['status'] == 400:
@@ -70,7 +73,7 @@ def run():
             detail = body.get('detail') if isinstance(body, dict) else None
             if isinstance(detail, str) and '이미 등록된' in detail:
                 print('Phone already registered, trying login fallback')
-                r_login = api_fetch('/api/auth/login', 'POST', {'site_id': signup_payload['site_id'], 'password': signup_payload['password']})
+                r_login = api_fetch(page, '/api/auth/login', 'POST', {'site_id': signup_payload['site_id'], 'password': signup_payload['password']})
                 print('login fallback status', r_login.get('status'))
                 if r_login.get('status') != 200:
                     print('Login fallback failed', r_login)
@@ -87,22 +90,8 @@ def run():
             browser.close()
             return 2
         else:
-            # proceed to login with small delay and retries (handles eventual consistency)
-            def login_with_retry(site_id, password):
-                delays = [0.3, 0.5, 0.8, 1.2, 1.5]
-                last = None
-                # initial small delay to allow signup side-effects to settle
-                time.sleep(0.3)
-                for i, d in enumerate(delays, start=1):
-                    lr = api_fetch('/api/auth/login', 'POST', {'site_id': site_id, 'password': password})
-                    print(f'login attempt {i} status', lr.get('status'))
-                    if lr.get('status') == 200:
-                        return lr
-                    last = lr
-                    time.sleep(d)
-                return last or { 'status': 0, 'error': 'no response' }
-
-            r2 = login_with_retry(signup_payload['site_id'], signup_payload['password'])
+            # proceed to login
+            r2 = api_fetch(page, '/api/auth/login', 'POST', {'site_id': signup_payload['site_id'], 'password': signup_payload['password']})
 
         print('login status', r2['status'])
         if r2['status'] != 200:
@@ -126,15 +115,20 @@ def run():
             # Map to real API endpoints and payloads
             if game == 'slot':
                 api_action = '/api/games/slot/spin'
+                payload = {'bet_amount': 1}
             elif game == 'gacha':
                 api_action = '/api/games/gacha/pull'
+                payload = {'pull_count': 1}
             elif game == 'crash':
                 api_action = '/api/games/crash/bet'
+                payload = {'bet_amount': 1}
             elif game == 'battlepass':
                 # prefer UI; fallback to session active check
                 api_action = '/api/games/session/active'
+                payload = None
             else:
                 api_action = f'/api/games/{game}/play'
+                payload = None
             ok = visit_or_api(page, route, api_action, headers=headers, action_name=f'play {game}')
             if not ok:
                 print(f'Failed game {game} path')
@@ -160,7 +154,7 @@ def run():
             print('Profile page title', page.title())
         except Exception:
             print('Profile UI check failed; attempting API profile fetch')
-            p = api_fetch(f'/api/users/{user_id}/profile', 'GET', None, headers)
+            p = api_fetch(page, f'/api/users/{user_id}/profile', 'GET', None, headers)
             print('profile api status', p.get('status'))
             if p.get('status') != 200:
                 page.screenshot(path='e2e_failure_profile.png', full_page=True)

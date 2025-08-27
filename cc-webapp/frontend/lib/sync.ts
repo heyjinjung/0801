@@ -4,18 +4,13 @@
  * - EnsureHydrated: 최초 마운트 시 하이드레이트 트리거(렌더 차단 안함)
  * - RealtimeSyncProvider: WS 수신 → 프로필/상태 동기화 (필요 시 재하이드레이트)
  * - withReconcile: 쓰기 요청 후 재조정(hydrate)
- * - withIdem: 멱등키 생성/전달 유틸(쓰기 호출 보조)
  */
 import React, { useEffect } from "react";
 import { api, API_ORIGIN } from "../lib/unifiedApi";
-import { getAccessToken } from "../utils/tokenStorage";
 import {
   useGlobalStore,
   setProfile,
   setHydrated,
-  applyReward,
-  mergeProfile,
-  pushNotification,
 } from "../store/globalStore";
 
 export async function hydrateProfile(dispatch: ReturnType<typeof useGlobalStore>["dispatch"]) {
@@ -76,9 +71,6 @@ export function RealtimeSyncProvider(props: { children?: React.ReactNode }) {
     let closed = false;
     let lastHydrate = 0;
     const minInterval = 600; // ms, 잦은 재하이드레이트 방지
-    // 최근 보상 이벤트 중복 억제(간단 TTL)
-    const recentRewardTimestamps: number[] = [];
-    const REWARD_TTL = 1500; // 1.5s 내 중복 억제
 
     function toWs(origin: string) {
       return origin.replace(/^http/i, "ws");
@@ -91,69 +83,8 @@ export function RealtimeSyncProvider(props: { children?: React.ReactNode }) {
       hydrateProfile(dispatch);
     }
 
-  function tryApplyRewardFromMessage(msg: any) {
-      try {
-        if (!msg || msg?.type !== "reward_granted") return;
-        // 중복 처리 방지: 최근 일정 시간 내 동일 타임스탬프/양의 보상만 적용
-        const ts = Number(msg?.timestamp || Date.now());
-        const now = Date.now();
-        // TTL 정리
-        for (let i = recentRewardTimestamps.length - 1; i >= 0; i -= 1) {
-          if (now - recentRewardTimestamps[i] > REWARD_TTL) recentRewardTimestamps.splice(i, 1);
-        }
-        if (recentRewardTimestamps.some(t => Math.abs(ts - t) < 200)) {
-          return; // 너무 근접한 중복 이벤트로 간주
-        }
-        const rawAmount = (msg?.awarded_gold ?? msg?.gold ?? msg?.amount);
-        const amount = Number(rawAmount);
-        const currency = (msg?.currency === 'gems') ? 'gems' : 'gold';
-        const reused = Boolean(msg?.idempotency_reused || msg?.reused);
-        if (!Number.isFinite(amount) || amount <= 0) return;
-        if (reused) return; // 멱등 재사용은 즉시반영 스킵
-        // 즉시 반영 후 TTL 큐에 기록, 곧이어 hydrate로 권위값 동기화
-        applyReward(dispatch, amount, currency as any);
-        recentRewardTimestamps.push(ts);
-      } catch {
-        // noop
-      }
-    }
-
-    function tryApplyProfileDelta(msg: any) {
-      try {
-        if (!msg || msg?.type !== 'profile_update') return;
-        const ch = msg?.changes || {};
-        const raw = ch.gold_balance ?? ch.balance ?? ch.cyber_token_balance ?? ch.tokens;
-        if (raw !== undefined && Number.isFinite(Number(raw))) {
-          mergeProfile(dispatch, { goldBalance: Number(raw) });
-        }
-      } catch { /* noop */ }
-    }
-
-    function maybeNotifyPurchase(msg: any) {
-      try {
-        if (!msg || msg?.type !== 'purchase_update') return;
-        const status = String(msg.status || 'unknown');
-        const product = msg.product_id ? String(msg.product_id) : undefined;
-        const amount = msg.amount;
-        const reason = msg.reason_code;
-        let text = '';
-        if (status === 'success') text = product ? `구매 성공: ${product}` : '구매 성공';
-        else if (status === 'pending') text = product ? `구매 대기중: ${product}` : '구매 대기중';
-        else if (status === 'idempotent_reuse') text = '중복 요청 재사용 처리';
-        else if (status === 'failed') text = `구매 실패${reason ? ` (${reason})` : ''}`;
-        else text = `구매 상태: ${status}`;
-        pushNotification(dispatch, { type: 'purchase', message: text, product, amount, status, reason });
-      } catch { /* noop */ }
-    }
-
     try {
-      // 인증 토큰 확인 후, 서버의 /api/realtime/sync 엔드포인트로 연결
-      const token = getAccessToken();
-      if (!token) {
-        console.warn("[sync] No token found – skipping WS connect");
-        return () => { /* noop */ };
-      }
-      const url = `${toWs(API_ORIGIN)}/api/realtime/sync?token=${encodeURIComponent(token)}`;
+      const url = toWs(API_ORIGIN) + "/ws/updates";
       ws = new WebSocket(url);
       ws.onopen = () => {
         // eslint-disable-next-line no-console
@@ -164,19 +95,10 @@ export function RealtimeSyncProvider(props: { children?: React.ReactNode }) {
           const msg = JSON.parse(ev.data);
           const type = msg?.type;
           switch (type) {
-            case 'reward_granted':
-              tryApplyRewardFromMessage(msg);
-              safeHydrate();
-              break;
-            case 'profile_update':
-              tryApplyProfileDelta(msg);
-              safeHydrate();
-              break;
-            case 'purchase_update':
-              maybeNotifyPurchase(msg);
-              safeHydrate();
-              break;
-            case 'game_update':
+            case "profile_update":
+            case "purchase_update":
+            case "reward_granted":
+            case "game_update":
               safeHydrate();
               break;
             default:
@@ -244,10 +166,4 @@ export function useWithReconcile() {
       return withReconcile<T>(dispatch, serverCall, opts);
     };
   }, [dispatch]);
-}
-
-// 멱등키 부여 전용 유틸 (쓰기 계열 호출 보조)
-export function withIdem<T>(fn: (idemKey: string) => Promise<T>): Promise<T> {
-  const key = uuidv4();
-  return fn(key);
 }
