@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import useFeedback from '../../hooks/useFeedback';
 import useBalanceSync from '../../hooks/useBalanceSync';
 import { api } from '@/lib/unifiedApi';
@@ -32,6 +32,10 @@ interface NeonSlotGameProps {
   onBack: () => void;
   onUpdateUser: (user: User) => void;
   onAddNotification: (message: string) => void;
+  // 요구사항: 입력으로 betAmount, config, user balance(selector)
+  // 기존 호환 위해 선택적 override로만 제공 (기본은 useGameConfig + selector 사용)
+  initialBetAmount?: number;
+  config?: { slotGameCost?: number };
 }
 
 type SlotSymbol = {
@@ -98,7 +102,14 @@ interface SlotSpinApiResponse {
   message?: string;
 }
 
-export function NeonSlotGame({ user, onBack, onUpdateUser, onAddNotification }: NeonSlotGameProps) {
+export function NeonSlotGame({
+  user,
+  onBack,
+  onUpdateUser,
+  onAddNotification,
+  initialBetAmount,
+  config,
+}: NeonSlotGameProps) {
   const { fromApi } = useFeedback();
   const { config: gameConfig, loading: configLoading } = useGameConfig();
   const { reconcileBalance } = useBalanceSync({
@@ -120,7 +131,9 @@ export function NeonSlotGame({ user, onBack, onUpdateUser, onAddNotification }: 
   const [spinningReels, setSpinningReels] = useState([[], [], []] as SlotSymbol[][]);
   const [isSpinning, setIsSpinning] = useState(false);
   const [reelStopOrder, setReelStopOrder] = useState([] as number[]);
-  const [betAmount, setBetAmount] = useState(() => gameConfig.slotGameCost || 100);
+  const [betAmount, setBetAmount] = useState(
+    () => (initialBetAmount ?? config?.slotGameCost ?? gameConfig.slotGameCost) || 100
+  );
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [winAmount, setWinAmount] = useState(0);
   const [isWin, setIsWin] = useState(false);
@@ -138,11 +151,14 @@ export function NeonSlotGame({ user, onBack, onUpdateUser, onAddNotification }: 
 
   // gameConfig가 로드되면 슬롯 게임 비용으로 베팅 금액 업데이트
   useEffect(() => {
-    if (!configLoading && gameConfig.slotGameCost) {
-      setBetAmount(gameConfig.slotGameCost);
-      console.log('[NeonSlotGame] 베팅 금액 설정:', gameConfig.slotGameCost);
+    if (!configLoading) {
+      const override = initialBetAmount ?? config?.slotGameCost ?? gameConfig.slotGameCost;
+      if (override) {
+        setBetAmount(override);
+        console.log('[NeonSlotGame] 베팅 금액 설정:', override);
+      }
     }
-  }, [configLoading, gameConfig.slotGameCost]);
+  }, [configLoading, gameConfig.slotGameCost, initialBetAmount, config?.slotGameCost]);
 
   // Jackpot calculation
   useEffect(() => {
@@ -287,6 +303,10 @@ export function NeonSlotGame({ user, onBack, onUpdateUser, onAddNotification }: 
   };
 
   // Handle spin with enhanced animation
+  // 오류 표기 및 재시도 저장
+  const [errorMessage, setErrorMessage] = useState(null as string | null);
+  const retryActionRef = useRef(null as null | (() => void));
+
   const handleSpin = async () => {
     // 권위 잔액 기준으로 사전 가드
     if (gold < betAmount) {
@@ -303,8 +323,8 @@ export function NeonSlotGame({ user, onBack, onUpdateUser, onAddNotification }: 
     // Deduct bet amount (locally; authoritative balance will come from server if call succeeds)
     const costAmount = betAmount;
 
-  let serverResult: SlotSpinApiResponse | null = null;
-  let hasMergedBalance = false;
+    let serverResult: SlotSpinApiResponse | null = null;
+    let hasMergedBalance = false;
     // Attempt authoritative server spin with reconcile + idempotency
     try {
       const raw = await withReconcile(async (idemKey: string) =>
@@ -324,7 +344,13 @@ export function NeonSlotGame({ user, onBack, onUpdateUser, onAddNotification }: 
         hasMergedBalance = true;
       }
     } catch (_e) {
-      serverResult = null; // fallback to local simulation (no local balance mutation)
+      // 권위 준수: 로컬 시뮬레이션 금지, 사용자 친화적 에러 및 재시도 제공
+      setIsSpinning(false);
+      setErrorMessage('스핀 요청에 실패했습니다. 네트워크 상태를 확인한 후 다시 시도하세요.');
+      retryActionRef.current = () => {
+        void handleSpin();
+      };
+      return;
     }
 
     // Helper to map server unicode symbol to local symbol
@@ -372,9 +398,9 @@ export function NeonSlotGame({ user, onBack, onUpdateUser, onAddNotification }: 
       };
       setSpinningReels(result.reels);
     } else {
-      // Local simulation fallback
-      result = generateSpinResult();
-      setSpinningReels(result.reels);
+      // 이론상 도달 불가(위 catch에서 반환) — 안전 가드
+      setIsSpinning(false);
+      return;
     }
 
     // Create staggered reel stop timing (more realistic)
@@ -398,7 +424,7 @@ export function NeonSlotGame({ user, onBack, onUpdateUser, onAddNotification }: 
 
     // Process final result after all reels stop
     setTimeout(async () => {
-  if (result.winAmount > 0) {
+      if (result.winAmount > 0) {
         setIsWin(true);
         setWinAmount(result.winAmount);
         setWinningPositions(result.winningPositions);
@@ -420,7 +446,7 @@ export function NeonSlotGame({ user, onBack, onUpdateUser, onAddNotification }: 
           await reconcileBalance();
         }
 
-        // 전역 게임 통계 누적(가산)
+        // 전역 게임 통계 누적(가산) — 서버 응답 기준만 반영
         mergeGameStats(dispatch, 'slot', {
           totalSpins: 1,
           totalBet: costAmount,
@@ -469,7 +495,7 @@ export function NeonSlotGame({ user, onBack, onUpdateUser, onAddNotification }: 
           await reconcileBalance();
         }
 
-        // 전역 게임 통계 누적(가산)
+        // 전역 게임 통계 누적(가산) — 서버 응답 기준만 반영
         mergeGameStats(dispatch, 'slot', {
           totalSpins: 1,
           totalBet: costAmount,
@@ -505,6 +531,33 @@ export function NeonSlotGame({ user, onBack, onUpdateUser, onAddNotification }: 
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-black to-primary-soft relative overflow-hidden">
+      {/* 오류 배너 및 재시도 */}
+      {errorMessage && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-xl bg-destructive/15 border border-destructive/40 text-destructive px-4 py-3 rounded-lg shadow-sm">
+          <div className="flex justify-between items-start gap-4">
+            <div className="flex-1">
+              <div className="font-semibold mb-1">오류 발생</div>
+              <div className="text-sm leading-relaxed break-all">{errorMessage}</div>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const fn = retryActionRef.current;
+                  setErrorMessage(null);
+                  if (fn) fn();
+                }}
+              >
+                재시도
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setErrorMessage(null)}>
+                닫기
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Enhanced Particle Effects */}
       <AnimatePresence>
         {particles.map((particle: { id: number; x: number; y: number; type: string }) => (
@@ -695,7 +748,6 @@ export function NeonSlotGame({ user, onBack, onUpdateUser, onAddNotification }: 
                               />
                             </div>
                           ))}
-
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -810,13 +862,13 @@ export function NeonSlotGame({ user, onBack, onUpdateUser, onAddNotification }: 
               </div>
 
               <div className="grid grid-cols-4 gap-2">
-        {[100, 500, 1000, 5000].map((amount) => (
+                {[100, 500, 1000, 5000].map((amount) => (
                   <Button
                     key={amount}
                     size="sm"
                     variant="outline"
-          onClick={() => setBetAmount(Math.min(amount, gold))}
-          disabled={isSpinning || isAutoSpinning || gold < amount}
+                    onClick={() => setBetAmount(Math.min(amount, gold))}
+                    disabled={isSpinning || isAutoSpinning || gold < amount}
                     className="border-border-secondary hover:border-primary text-xs btn-hover-lift"
                   >
                     {amount}G

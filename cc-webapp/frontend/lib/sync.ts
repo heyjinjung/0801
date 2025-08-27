@@ -4,6 +4,7 @@
  * - EnsureHydrated: 최초 마운트 시 하이드레이트 트리거(렌더 차단 안함)
  * - RealtimeSyncProvider: WS 수신 → 프로필/상태 동기화 (필요 시 재하이드레이트)
  * - withReconcile: 쓰기 요청 후 재조정(hydrate)
+ * - withIdem: 멱등키 생성/전달 유틸(쓰기 호출 보조)
  */
 import React, { useEffect } from "react";
 import { api, API_ORIGIN } from "../lib/unifiedApi";
@@ -199,4 +200,10 @@ export function useWithReconcile() {
       return withReconcile<T>(dispatch, serverCall, opts);
     };
   }, [dispatch]);
+}
+
+// 멱등키 부여 전용 유틸 (쓰기 계열 호출 보조)
+export function withIdem<T>(fn: (idemKey: string) => Promise<T>): Promise<T> {
+  const key = uuidv4();
+  return fn(key);
 }

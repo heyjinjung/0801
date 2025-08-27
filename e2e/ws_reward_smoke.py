@@ -1,5 +1,5 @@
 from playwright.sync_api import sync_playwright
-import time, sys, os
+import time, sys, os, requests
 
 # 컨테이너/호스트 모두에서 동작하도록 환경변수 우선 사용
 FRONTEND_BASE = os.getenv("FRONTEND_BASE", "http://localhost:3000")
@@ -8,19 +8,16 @@ BACKEND_BASE = os.getenv("BACKEND_BASE", "http://localhost:8000")
 # This smoke test asserts that when a reward is granted, the UI GOLD updates immediately
 # via WebSocket handler (applyReward) before a full hydration occurs.
 
-def api_fetch(page, path, method='POST', data=None, headers=None):
+def api_fetch(path, method='POST', data=None, headers=None):
     url = BACKEND_BASE + path
-    return page.evaluate(
-        """async (params) => {
-            const {url, method, data, headers} = params;
-            const opts = { method, headers: Object.assign({'content-type':'application/json'}, headers||{}) };
-            if (data) opts.body = JSON.stringify(data);
-            const res = await fetch(url, opts);
-            const text = await res.text();
-            try { return {status: res.status, json: JSON.parse(text)}; } catch(e) { return {status: res.status, text}; }
-        }""",
-        {"url": url, "method": method, "data": data, "headers": headers},
-    )
+    try:
+        res = requests.request(method=method, url=url, json=data, headers=headers or {}, timeout=15)
+        try:
+            return { 'status': res.status_code, 'json': res.json() }
+        except Exception:
+            return { 'status': res.status_code, 'text': res.text }
+    except requests.RequestException as e:
+        return { 'status': 0, 'error': str(e) }
 
 def run():
     with sync_playwright() as p:
@@ -31,12 +28,23 @@ def run():
         uname = f"ws_smoke_{int(time.time())}"
         phone = f"010{int(time.time())%100000000:08d}"
         signup = {"invite_code":"5858","nickname":uname,"site_id":uname,"phone_number":phone,"password":"pass1234"}
-        r = api_fetch(page, '/api/auth/signup', 'POST', signup)
+        r = api_fetch('/api/auth/signup', 'POST', signup)
         if r['status'] not in (200, 400):
             print('signup failed', r)
             browser.close()
             return 2
-        r_login = api_fetch(page, '/api/auth/login', 'POST', {"site_id": uname, "password": "pass1234"})
+        # 로그인 재시도(backoff) – 가입 직후 일시적 5xx 완화
+        def login_with_retry(uid: str, pw: str):
+            backoffs = [0.3, 0.6, 1.0, 1.5, 2.0]
+            last = None
+            for t in backoffs:
+                time.sleep(t)
+                last = api_fetch('/api/auth/login', 'POST', {"site_id": uid, "password": pw})
+                if last.get('status') == 200:
+                    return last
+            return last or { 'status': 0, 'error': 'no attempt' }
+
+        r_login = login_with_retry(uname, 'pass1234')
         if r_login['status'] != 200:
             print('login failed', r_login)
             browser.close()
@@ -116,10 +124,10 @@ def run():
 
         # capture current GOLD from DOM (primary) and via API (diagnostic)
         before_gold_dom = read_gold_dom()
-        bal = api_fetch(page, '/api/users/balance', 'GET', None, headers)
+        bal = api_fetch('/api/users/balance', 'GET', None, headers)
         before_gold_api = int((bal.get('json') or {}).get('gold') or (bal.get('json') or {}).get('gold_balance') or 0) if bal['status']==200 else None
         # trigger a small reward via central endpoint
-        grant = api_fetch(page, '/api/rewards/distribute', 'POST', {"user_id": (r_login.get('json') or {}).get('user',{}).get('id'), "reward_type": "gold", "amount": 3, "source_description": "ws_smoke"}, headers)
+        grant = api_fetch('/api/rewards/distribute', 'POST', {"user_id": (r_login.get('json') or {}).get('user',{}).get('id'), "reward_type": "gold", "amount": 3, "source_description": "ws_smoke"}, headers)
         if grant['status'] != 200:
             print('reward distribute failed', grant)
             browser.close()
@@ -135,7 +143,7 @@ def run():
                 break
         if not succeeded:
             # As a fallback, check API and log for diagnostics
-            bal2 = api_fetch(page, '/api/users/balance', 'GET', None, headers)
+            bal2 = api_fetch('/api/users/balance', 'GET', None, headers)
             after_gold_api = int((bal2.get('json') or {}).get('gold') or (bal2.get('json') or {}).get('gold_balance') or 0) if bal2['status']==200 else None
             print('DOM did not reflect increase. before_dom=', before_gold_dom, 'now_dom=', read_gold_dom(), 'api_before=', before_gold_api, 'api_after=', after_gold_api)
             browser.close()

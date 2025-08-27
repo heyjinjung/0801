@@ -17,7 +17,6 @@ services:
       ccnet:
         aliases:
           - e2e
-    entrypoint: ["bash", "ci/playwright/run_e2e.sh"]
 
 networks:
   ccnet:

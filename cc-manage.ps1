@@ -300,6 +300,7 @@ function Show-Help {
     Write-Host "  check       Verify prerequisites (Docker, ports, compose)" -ForegroundColor White
     Write-Host "  health      Probe http://localhost:8000/health and :3000" -ForegroundColor White
     Write-Host "  db-check    Verify PostgreSQL connectivity (port, pg_isready, SELECT 1)" -ForegroundColor White
+    Write-Host "  e2e         Run containerized Python E2E tests (Playwright)" -ForegroundColor White
     Write-Host "  tools       Manage monitoring tools (usage: tools start|stop|status)" -ForegroundColor White
     Write-Host "  e2e         Run containerized Python E2E (game + WS smoke)" -ForegroundColor White
     Write-Host "  help        Show this help" -ForegroundColor White
@@ -329,6 +330,30 @@ switch ($Command) {
             "status" { Tools-Status }
             default { Write-Host "Usage: ./cc-manage.ps1 tools <start|stop|status>" -ForegroundColor Yellow }
         }
+    }
+    "e2e" {
+        Detect-Compose
+        $composeArgs = Get-ComposeArgs
+        $e2eFile = "docker-compose.e2e.yml"
+        if (-not (Test-Path $e2eFile)) {
+            Write-Host "Missing $e2eFile; cannot run E2E." -ForegroundColor Red
+            exit 1
+        }
+        Write-Host "Running E2E (containerized Playwright Python)..." -ForegroundColor Cyan
+        # We use run to create a one-shot container and remove it afterwards
+        if ($UseComposeV2) {
+            & docker compose @composeArgs -f $e2eFile build e2e
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            & docker compose @composeArgs -f $e2eFile run --rm e2e
+        } else {
+            & docker-compose @composeArgs -f $e2eFile build e2e
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            & docker-compose @composeArgs -f $e2eFile run --rm e2e
+        }
+        $code = $LASTEXITCODE
+        if ($code -eq 0) { Write-Host "E2E passed" -ForegroundColor Green }
+        else { Write-Host "E2E failed with exit code $code" -ForegroundColor Red }
+        exit $code
     }
     "e2e" {
         Detect-Compose

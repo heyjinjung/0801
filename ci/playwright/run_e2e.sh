@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-set -euo pipefail
+# 안전 모드 설정 (일부 셸에서 pipefail 미지원 시 우회)
+set -eu
+set -o pipefail 2>/dev/null || true
 
 echo "Starting Playwright E2E runner"
 
