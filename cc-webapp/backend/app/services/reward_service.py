@@ -86,8 +86,8 @@ class RewardService:
     # Fresh grant path within a DB transaction (사이드이펙트 제거 버전)
         try:
             now = datetime.now(timezone.utc)
-            # Currency effects
-            if reward_type.upper() in {"COIN", "TOKEN"}:
+            # Currency effects (단일 통화: GOLD=TOKEN=COIN 동치 처리)
+            if reward_type.upper() in {"COIN", "TOKEN", "GOLD"}:
                 self.token_service.add_tokens(user_id, amount)
 
             if self.SINGLE_ADD_COMPAT:

@@ -125,7 +125,10 @@ def run():
         # capture current GOLD from DOM (primary) and via API (diagnostic)
         before_gold_dom = read_gold_dom()
         bal = api_fetch('/api/users/balance', 'GET', None, headers)
-        before_gold_api = int((bal.get('json') or {}).get('gold') or (bal.get('json') or {}).get('gold_balance') or 0) if bal['status']==200 else None
+        before_gold_api = None
+        if bal['status'] == 200:
+            bj = (bal.get('json') or {})
+            before_gold_api = int(bj.get('cyber_token_balance') or bj.get('gold') or bj.get('gold_balance') or 0)
         # trigger a small reward via central endpoint
         grant = api_fetch('/api/rewards/distribute', 'POST', {"user_id": (r_login.get('json') or {}).get('user',{}).get('id'), "reward_type": "gold", "amount": 3, "source_description": "ws_smoke"}, headers)
         if grant['status'] != 200:
@@ -144,7 +147,10 @@ def run():
         if not succeeded:
             # As a fallback, check API and log for diagnostics
             bal2 = api_fetch('/api/users/balance', 'GET', None, headers)
-            after_gold_api = int((bal2.get('json') or {}).get('gold') or (bal2.get('json') or {}).get('gold_balance') or 0) if bal2['status']==200 else None
+            after_gold_api = None
+            if bal2['status'] == 200:
+                bj2 = (bal2.get('json') or {})
+                after_gold_api = int(bj2.get('cyber_token_balance') or bj2.get('gold') or bj2.get('gold_balance') or 0)
             print('DOM did not reflect increase. before_dom=', before_gold_dom, 'now_dom=', read_gold_dom(), 'api_before=', before_gold_api, 'api_after=', after_gold_api)
             browser.close()
             return 8

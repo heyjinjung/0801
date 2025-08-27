@@ -8,6 +8,7 @@
  */
 import React, { useEffect } from "react";
 import { api, API_ORIGIN } from "../lib/unifiedApi";
+import { getAccessToken } from "../utils/tokenStorage";
 import {
   useGlobalStore,
   setProfile,
@@ -116,7 +117,13 @@ export function RealtimeSyncProvider(props: { children?: React.ReactNode }) {
     }
 
     try {
-      const url = toWs(API_ORIGIN) + "/ws/updates";
+      // 인증 토큰 확인 후, 서버의 /api/realtime/sync 엔드포인트로 연결
+      const token = getAccessToken();
+      if (!token) {
+        console.warn("[sync] No token found – skipping WS connect");
+        return () => { /* noop */ };
+      }
+      const url = `${toWs(API_ORIGIN)}/api/realtime/sync?token=${encodeURIComponent(token)}`;
       ws = new WebSocket(url);
       ws.onopen = () => {
         // eslint-disable-next-line no-console
