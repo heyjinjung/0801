@@ -3,7 +3,7 @@
 // 해결 대상 에러: "Multiple configurations found" -> jest.config.ts 제거(또는 rename) 권장.
 // 만약 삭제가 곤란하면 package.json scripts 의 test 명령에 --config jest.config.js 명시.
 
-const nextJest = require('next/jest')({ dir: './' });
+const nextJest = require('next/jest');
 const createJestConfig = nextJest({ dir: './' });
 
 /** @type {import('jest').Config} */
