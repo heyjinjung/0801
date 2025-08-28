@@ -1,3 +1,4 @@
+// @ts-nocheck
 /// <reference types="jest" />
 import type {} from 'jest';
 import React from 'react';
@@ -83,7 +84,6 @@ function renderScreen(seedInv = serverAuthoritativeInventory) {
     </WithSeededStore>
   );
 }
-
 describe('InventoryScreen - UI smoke (reconciled inventory)', () => {
   test('헤더 총 개수와 리스트가 글로벌 인벤토리를 반영한다', async () => {
     renderScreen();

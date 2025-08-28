@@ -12,6 +12,9 @@ import { api as unifiedApi } from '@/lib/unifiedApi';
 import useBalanceSync from '@/hooks/useBalanceSync';
 import { getTokens, setTokens } from '../utils/tokenStorage';
 import { useRealtimeProfile, useRealtimeStats } from '@/hooks/useRealtimeData';
+import { Input } from './ui/input';
+import { useWithReconcile } from '@/lib/sync';
+import { useGlobalStore, mergeProfile } from '@/store/globalStore';
 
 interface ProfileScreenProps {
   onBack: () => void;
@@ -33,6 +36,11 @@ export function ProfileScreen({
   sharedUser,
   onUpdateUser,
 }: ProfileScreenProps) {
+  // 전역 store 및 withReconcile 훅
+  const { state: gState, dispatch } = useGlobalStore();
+  const gProfile = gState.profile;
+  const withReconcile = useWithReconcile();
+
   const { reconcileWith } = useBalanceSync({
     sharedUser,
     onUpdateUser,
@@ -47,6 +55,15 @@ export function ProfileScreen({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
+  // 닉네임 편집 상태
+  const [isEditingNickname, setIsEditingNickname] = useState(false);
+  const [nicknameDraft, setNicknameDraft] = useState((gProfile as any)?.nickname || '');
+
+  // 전역 프로필 닉네임이 갱신되면 드래프트 동기화
+  useEffect(() => {
+    const next = (gProfile as any)?.nickname || '';
+    setNicknameDraft(next);
+  }, [gProfile?.nickname]);
   // 자동 실시간 동기화: 탭 포커스 복귀 또는 주기적 리프레시
   const AUTO_REFRESH_MS = 60_000; // 1분
 
@@ -106,6 +123,36 @@ export function ProfileScreen({
     } catch (error) {
       console.error('[fetchProfileBundle] 오류:', error);
       throw error;
+    }
+  };
+
+  // 닉네임 저장 핸들러(withReconcile + 서버 응답으로 store 병합)
+  const handleSaveNickname = async () => {
+    const next = (nicknameDraft || '').trim();
+    if (!next || next === (gProfile as any)?.nickname) {
+      setIsEditingNickname(false);
+      return;
+    }
+    try {
+      const res: any = await withReconcile(async (idemKey: string) =>
+        unifiedApi.post(
+          'users/profile',
+          { nickname: next },
+          { headers: { 'X-Idempotency-Key': idemKey }, method: 'PATCH' as any }
+        )
+      );
+      if (res && (res.nickname || res.id)) {
+        // 전역 프로필 병합
+        mergeProfile(dispatch, res);
+        // 로컬 표시용 상태도 즉시 갱신하여 UI가 바로 반영되도록 처리
+        setUser((prev: any) => (prev ? { ...prev, nickname: res.nickname ?? prev.nickname } : prev));
+      }
+      onAddNotification('닉네임이 저장되었습니다.');
+      setIsEditingNickname(false);
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('[ProfileScreen] 닉네임 저장 실패:', e);
+      onAddNotification('닉네임 저장 중 오류가 발생했습니다.');
     }
   };
 
@@ -433,7 +480,7 @@ export function ProfileScreen({
 
           <div className="glass-effect rounded-xl p-3 border border-primary/20">
             <div className="text-right">
-              <div className="text-sm text-muted-foreground">{user?.nickname || '사용자'}</div>
+              <div className="text-sm text-muted-foreground">{(gProfile as any)?.nickname ?? user?.nickname ?? '사용자'}</div>
               <div className="text-lg font-bold text-primary">프로필</div>
             </div>
           </div>
@@ -457,11 +504,32 @@ export function ProfileScreen({
               </div>
 
               <div className="relative z-10 text-center space-y-6">
-                {/* 🎯 닉네임 (단순하게) */}
-                <div>
-                  <h2 className="text-4xl font-black text-gradient-primary mb-4">
-                    {user?.nickname || '사용자'}
-                  </h2>
+                {/* 🎯 닉네임 (편집 가능) */}
+                <div className="space-y-3">
+                  {isEditingNickname ? (
+                    <div className="max-w-md mx-auto space-y-3">
+                      <Input
+                        value={nicknameDraft}
+                        onChange={(e: InputChangeEvent) => setNicknameDraft(e.target.value)}
+                        placeholder="새 닉네임"
+                      />
+                      <div className="flex gap-2 justify-center">
+                        <Button onClick={handleSaveNickname} className="min-w-24">저장</Button>
+                        <Button variant="outline" onClick={() => { setIsEditingNickname(false); setNicknameDraft((gProfile as any)?.nickname || ''); }} className="min-w-24">취소</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <h2 className="text-4xl font-black text-gradient-primary mb-2">
+                        {(gProfile as any)?.nickname ?? user?.nickname ?? '사용자'}
+                      </h2>
+                      <div className="flex justify-center">
+                        <Button variant="outline" size="sm" onClick={() => setIsEditingNickname(true)} className="glass-effect hover:bg-primary/10">
+                          닉네임 수정
+                        </Button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* 🎯 연속출석일만 표시 */}
                   <div className="flex justify-center">

@@ -28,6 +28,7 @@ import { api } from '@/lib/unifiedApi';
 import { useWithReconcile } from '@/lib/sync';
 import { useUserGold } from '@/hooks/useSelectors';
 import { useGlobalStore, mergeProfile, applyPurchase, mergeGameStats } from '@/store/globalStore';
+import ShopBadge from './ShopBadge';
 import ShopPurchaseHistory from './ShopPurchaseHistory';
 
 interface ShopScreenProps {
@@ -53,7 +54,7 @@ const SHOP_ITEMS = [
     category: 'currency',
     isLimited: false,
     discount: 0,
-    popular: false
+    popular: false,
   },
   {
     id: 'gold_pack_medium',
@@ -67,7 +68,7 @@ const SHOP_ITEMS = [
     category: 'currency',
     isLimited: false,
     discount: 20,
-    popular: true
+    popular: true,
   },
   {
     id: 'gold_pack_large',
@@ -81,7 +82,7 @@ const SHOP_ITEMS = [
     category: 'currency',
     isLimited: false,
     discount: 30,
-    popular: false
+    popular: false,
   },
   {
     id: 'vip_skin_neon',
@@ -94,7 +95,7 @@ const SHOP_ITEMS = [
     category: 'cosmetic',
     isLimited: true,
     discount: 0,
-    popular: false
+    popular: false,
   },
   {
     id: 'lucky_charm',
@@ -107,7 +108,7 @@ const SHOP_ITEMS = [
     category: 'powerup',
     isLimited: false,
     discount: 0,
-    popular: true
+    popular: true,
   },
   {
     id: 'exp_booster',
@@ -120,7 +121,7 @@ const SHOP_ITEMS = [
     category: 'powerup',
     isLimited: false,
     discount: 0,
-    popular: false
+    popular: false,
   },
   {
     id: 'premium_gacha_ticket',
@@ -133,7 +134,7 @@ const SHOP_ITEMS = [
     category: 'special',
     isLimited: true,
     discount: 25,
-    popular: true
+    popular: true,
   },
   {
     id: 'slot_multiplier',
@@ -146,8 +147,8 @@ const SHOP_ITEMS = [
     category: 'powerup',
     isLimited: false,
     discount: 15,
-    popular: false
-  }
+    popular: false,
+  },
 ];
 
 export function ShopScreen({
@@ -156,12 +157,16 @@ export function ShopScreen({
   onNavigateToInventory,
   onNavigateToProfile,
   onUpdateUser,
-  onAddNotification
+  onAddNotification,
 }: ShopScreenProps) {
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null as import('../types').GameItem | null);
   const [catalog, setCatalog] = useState(null as any[] | null);
-  const { reconcileBalance } = useBalanceSync({ sharedUser: user, onUpdateUser, onAddNotification });
+  const { reconcileBalance } = useBalanceSync({
+    sharedUser: user,
+    onUpdateUser,
+    onAddNotification,
+  });
   const withReconcile = useWithReconcile();
   const gold = useUserGold();
   const { dispatch } = useGlobalStore();
@@ -193,12 +198,14 @@ export function ShopScreen({
       if (!cancelled) setCatalog([]); // 빈 배열이면 아래에서 폴백 사용
     }
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // 서버 → UI 매핑 (널 안전)
   const itemsToRender = useMemo(() => {
-    const source = (catalog && catalog.length > 0) ? catalog : SHOP_ITEMS;
+    const source = catalog && catalog.length > 0 ? catalog : SHOP_ITEMS;
     return source.map((it: any) => ({
       id: String(it.id ?? it.item_id ?? it.slug ?? it.code ?? Math.random().toString(36).slice(2)),
       name: String(it.name ?? '아이템'),
@@ -222,35 +229,35 @@ export function ShopScreen({
           textColor: 'text-muted-foreground',
           borderColor: 'border-muted-foreground/30',
           bgColor: 'bg-secondary/20',
-          glowColor: 'hover:shadow-lg'
+          glowColor: 'hover:shadow-lg',
         };
       case 'rare':
         return {
           textColor: 'text-info',
           borderColor: 'border-info/30',
           bgColor: 'bg-info/10',
-          glowColor: 'hover:shadow-info/20 hover:shadow-lg'
+          glowColor: 'hover:shadow-info/20 hover:shadow-lg',
         };
       case 'epic':
         return {
           textColor: 'text-primary',
           borderColor: 'border-primary/30',
           bgColor: 'bg-primary/10',
-          glowColor: 'hover:shadow-primary/20 hover:shadow-lg'
+          glowColor: 'hover:shadow-primary/20 hover:shadow-lg',
         };
       case 'legendary':
         return {
           textColor: 'text-gold',
           borderColor: 'border-gold/30',
           bgColor: 'bg-gold/10',
-          glowColor: 'hover:shadow-gold/20 hover:shadow-lg'
+          glowColor: 'hover:shadow-gold/20 hover:shadow-lg',
         };
       default:
         return {
           textColor: 'text-muted-foreground',
           borderColor: 'border-muted-foreground/30',
           bgColor: 'bg-secondary/20',
-          glowColor: 'hover:shadow-lg'
+          glowColor: 'hover:shadow-lg',
         };
     }
   };
@@ -277,40 +284,77 @@ export function ShopScreen({
 
     try {
       const res: any = await withReconcile(async (idemKey: string) =>
-        api.post('shop/buy', { item_id: item.id, price: finalPrice }, { headers: { 'X-Idempotency-Key': idemKey } })
+        api.post(
+          'shop/buy',
+          { item_id: item.id, price: finalPrice },
+          { headers: { 'X-Idempotency-Key': idemKey } }
+        )
       );
       // 서버 응답에 new balance가 있으면 즉시 전역 프로필에 병합(시각적 지연 최소화)
-      const newBal = res?.new_balance ?? res?.balance ?? res?.gold ?? res?.gold_balance ?? res?.cyber_token_balance;
+      const newBal =
+        res?.new_balance ??
+        res?.balance ??
+        res?.gold ??
+        res?.gold_balance ??
+        res?.cyber_token_balance;
       if (typeof newBal === 'number' && Number.isFinite(newBal)) {
         mergeProfile(dispatch, { goldBalance: Number(newBal) });
       }
       // 인벤토리 지급: 서버 응답에 items/awards 형태가 있으면 store 반영(가벼운 캐시)
       const awarded = res?.items ?? res?.awards ?? res?.granted_items ?? [];
       if (Array.isArray(awarded) && awarded.length > 0) {
-        applyPurchase(dispatch, awarded.map((it: any) => ({
-          id: String(it.id ?? `${item.id}_${Date.now()}`),
-          name: String(it.name ?? item.name ?? '아이템'),
-          type: String(it.type ?? item.type ?? 'item'),
-          rarity: String(it.rarity ?? item.rarity ?? 'common'),
-          quantity: Number(it.quantity ?? it.qty ?? 1),
-          value: Number(it.value ?? 0),
-          icon: String(it.icon ?? item.icon ?? ''),
-        })));
+        applyPurchase(
+          dispatch,
+          awarded.map((it: any) => ({
+            id: String(it.id ?? `${item.id}_${Date.now()}`),
+            name: String(it.name ?? item.name ?? '아이템'),
+            type: String(it.type ?? item.type ?? 'item'),
+            rarity: String(it.rarity ?? item.rarity ?? 'common'),
+            quantity: Number(it.quantity ?? it.qty ?? 1),
+            value: Number(it.value ?? 0),
+            icon: String(it.icon ?? item.icon ?? ''),
+          }))
+        );
       }
       // 구매로 인한 통계 증가가 응답에 있으면 병합(선택)
       if (res?.stats_delta && typeof res.stats_delta === 'object') {
         mergeGameStats(dispatch, 'shop', res.stats_delta as any);
       }
-      onAddNotification(item.type === 'currency'
-        ? `💰 ${item.value.toLocaleString()}G를 획득했습니다!`
-        : `✅ ${item.name}을(를) 구매했습니다!`
+      onAddNotification(
+        item.type === 'currency'
+          ? `💰 ${item.value.toLocaleString()}G를 획득했습니다!`
+          : `✅ ${item.name}을(를) 구매했습니다!`
       );
-    } catch (e) {
-      // 실패 시에도 최종적으로 권위 잔액과 동기화 시도
-      onAddNotification('구매 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+    } catch (e: any) {
+      // 실패 사유 매핑
+      const code = e?.response?.data?.reason_code || e?.reason_code || e?.code || '';
+      let msg = '구매 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+      switch (code) {
+        case 'INSUFFICIENT_FUNDS':
+          msg = '❌ 골드가 부족합니다.';
+          break;
+        case 'DUPLICATE_REQUEST':
+        case 'IDEMPOTENT_REUSE':
+          msg = 'ℹ️ 이미 처리된 구매 요청입니다.';
+          break;
+        case 'ITEM_SOLD_OUT':
+          msg = '⛔ 한정 상품이 매진되었습니다.';
+          break;
+        case 'LIMIT_REACHED':
+          msg = '⛔ 구매 한도를 초과했습니다.';
+          break;
+        case 'FRAUD_BLOCKED':
+          msg = '⛔ 보안 정책으로 차단되었습니다. 잠시 후 다시 시도해주세요.';
+          break;
+        default:
+          break;
+      }
+      onAddNotification(msg);
     }
     // 구매 후 권위 잔액 재조회로 최종 정합 유지
-    try { await reconcileBalance(); } catch {}
+    try {
+      await reconcileBalance();
+    } catch {}
     setShowPurchaseModal(false);
   };
 
@@ -321,21 +365,21 @@ export function ShopScreen({
         {[...Array(20)].map((_, i) => (
           <motion.div
             key={i}
-            initial={{ 
+            initial={{
               opacity: 0,
               x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1000),
-              y: Math.random() * (typeof window !== 'undefined' ? window.innerHeight : 1000)
+              y: Math.random() * (typeof window !== 'undefined' ? window.innerHeight : 1000),
             }}
-            animate={{ 
+            animate={{
               opacity: [0, 0.4, 0],
               scale: [0, 2, 0],
-              rotate: 360
+              rotate: 360,
             }}
             transition={{
               duration: 10,
               repeat: Infinity,
               delay: i * 0.3,
-              ease: "easeInOut"
+              ease: 'easeInOut',
             }}
             className="absolute w-1.5 h-1.5 bg-gradient-to-r from-primary/40 to-gold/40 rounded-full"
           />
@@ -358,7 +402,7 @@ export function ShopScreen({
               <ArrowLeft className="w-4 h-4 mr-2" />
               뒤로가기
             </Button>
-            
+
             <div>
               <h1 className="text-xl lg:text-2xl font-bold text-gradient-metal">
                 💎 프리미엄 상점
@@ -367,12 +411,11 @@ export function ShopScreen({
             </div>
           </div>
 
-          <div className="glass-metal rounded-xl p-4 border-metal metal-pulse">
+          <div className="glass-metal rounded-xl p-4 border-metal metal-pulse flex items-center gap-4">
+            <ShopBadge />
             <div className="text-right">
               <div className="text-sm text-muted-foreground">보유 골드</div>
-              <div className="text-xl font-black text-gradient-gold">
-                {gold.toLocaleString()}G
-              </div>
+              <div className="text-xl font-black text-gradient-gold">{gold.toLocaleString()}G</div>
             </div>
           </div>
         </div>
@@ -392,8 +435,7 @@ export function ShopScreen({
               onClick={onNavigateToInventory}
               className="glass-metal-hover bg-gradient-to-r from-success to-primary text-white border-0 px-8 py-3 metal-shine"
             >
-              <Package className="w-5 h-5 mr-2" />
-              내 아이템 보기
+              <Package className="w-5 h-5 mr-2" />내 아이템 보기
             </Button>
             <Button
               onClick={onNavigateToProfile}
@@ -423,7 +465,7 @@ export function ShopScreen({
                   <p className="text-muted-foreground">현재 소유하고 있는 프리미엄 아이템들</p>
                 </div>
               </div>
-              
+
               <Button
                 variant="outline"
                 onClick={onNavigateToInventory}
@@ -466,7 +508,7 @@ export function ShopScreen({
                     </motion.div>
                   );
                 })}
-                
+
                 {user.inventory.length > 16 && (
                   <motion.div
                     initial={{ opacity: 0, scale: 0.8 }}
@@ -476,12 +518,8 @@ export function ShopScreen({
                     className="glass-metal-hover bg-muted/20 rounded-xl p-4 border-2 border-dashed border-muted cursor-pointer hover:border-primary transition-colors text-center metal-shine"
                   >
                     <div className="text-3xl mb-3">📦</div>
-                    <div className="text-xs font-bold text-muted-foreground mb-2">
-                      더보기
-                    </div>
-                    <div className="text-xs text-primary">
-                      +{user.inventory.length - 16}개
-                    </div>
+                    <div className="text-xs font-bold text-muted-foreground mb-2">더보기</div>
+                    <div className="text-xs text-primary">+{user.inventory.length - 16}개</div>
                   </motion.div>
                 )}
               </div>
@@ -497,7 +535,9 @@ export function ShopScreen({
           className="mb-6"
         >
           <div className="text-center">
-            <h2 className="text-2xl font-bold text-gradient-primary mb-2">🛍️ 프리미엄 아이템 상점</h2>
+            <h2 className="text-2xl font-bold text-gradient-primary mb-2">
+              🛍️ 프리미엄 아이템 상점
+            </h2>
             <p className="text-muted-foreground">특별한 아이템으로 게임을 더욱 즐겁게!</p>
           </div>
         </motion.div>
@@ -508,7 +548,7 @@ export function ShopScreen({
             const styles = getRarityStyles(item.rarity);
             const finalPrice = Math.floor(item.price * (1 - item.discount / 100));
             const canAfford = gold >= finalPrice;
-            
+
             return (
               <motion.div
                 key={item.id}
@@ -517,7 +557,9 @@ export function ShopScreen({
                 transition={{ delay: 0.3 + index * 0.1 }}
                 className="relative"
               >
-                <Card className={`glass-metal p-8 border-2 ${styles.borderColor} glass-metal-hover ${styles.glowColor} relative overflow-hidden metal-shine`}>
+                <Card
+                  className={`glass-metal p-8 border-2 ${styles.borderColor} glass-metal-hover ${styles.glowColor} relative overflow-hidden metal-shine`}
+                >
                   {/* 🏷️ 배지들 */}
                   <div className="absolute top-4 right-4 flex flex-col gap-2">
                     {item.discount > 0 && (
@@ -543,23 +585,29 @@ export function ShopScreen({
                   )}
 
                   {/* 🎨 아이템 아이콘 */}
-                  <div className={`glass-metal ${styles.bgColor} rounded-2xl w-20 h-20 mx-auto mb-6 flex items-center justify-center text-4xl border ${styles.borderColor} metal-shine`}>
+                  <div
+                    className={`glass-metal ${styles.bgColor} rounded-2xl w-20 h-20 mx-auto mb-6 flex items-center justify-center text-4xl border ${styles.borderColor} metal-shine`}
+                  >
                     {item.icon}
                   </div>
 
                   {/* 📝 아이템 정보 */}
                   <div className="text-center mb-6">
-                    <h3 className={`text-lg font-bold ${styles.textColor} mb-3`}>
-                      {item.name}
-                    </h3>
+                    <h3 className={`text-lg font-bold ${styles.textColor} mb-3`}>{item.name}</h3>
                     <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
                       {item.description}
                     </p>
-                    
-                    <Badge className={`glass-metal text-white border ${styles.borderColor} bg-transparent px-3 py-1`}>
-                      {item.rarity === 'common' ? '일반' :
-                       item.rarity === 'rare' ? '레어' :
-                       item.rarity === 'epic' ? '에픽' : '전설'}
+
+                    <Badge
+                      className={`glass-metal text-white border ${styles.borderColor} bg-transparent px-3 py-1`}
+                    >
+                      {item.rarity === 'common'
+                        ? '일반'
+                        : item.rarity === 'rare'
+                        ? '레어'
+                        : item.rarity === 'epic'
+                        ? '에픽'
+                        : '전설'}
                     </Badge>
                   </div>
 
@@ -589,10 +637,13 @@ export function ShopScreen({
                       }}
                       disabled={!canAfford}
                       className={`w-full glass-metal-hover ${
-                        item.rarity === 'legendary' ? 'bg-gradient-to-r from-gold to-gold-light' :
-                        item.rarity === 'epic' ? 'bg-gradient-to-r from-primary to-primary-light' :
-                        item.rarity === 'rare' ? 'bg-gradient-to-r from-info to-primary' :
-                        'bg-gradient-metal'
+                        item.rarity === 'legendary'
+                          ? 'bg-gradient-to-r from-gold to-gold-light'
+                          : item.rarity === 'epic'
+                          ? 'bg-gradient-to-r from-primary to-primary-light'
+                          : item.rarity === 'rare'
+                          ? 'bg-gradient-to-r from-info to-primary'
+                          : 'bg-gradient-metal'
                       } hover:opacity-90 text-white font-bold py-3 disabled:opacity-50 disabled:cursor-not-allowed metal-shine`}
                     >
                       <ShoppingCart className="w-5 h-5 mr-2" />
@@ -603,10 +654,10 @@ export function ShopScreen({
               </motion.div>
             );
           })}
-  </div>
+        </div>
 
-  {/* 🧾 최근 거래 히스토리 */}
-  <ShopPurchaseHistory />
+        {/* 🧾 최근 거래 히스토리 */}
+        <ShopPurchaseHistory />
       </div>
 
       {/* 🔮 구매 확인 모달 (글래스메탈) */}
@@ -630,21 +681,28 @@ export function ShopScreen({
                 {(() => {
                   const styles = getRarityStyles(selectedItem.rarity);
                   return (
-                    <div className={`glass-metal ${styles.bgColor} rounded-2xl w-24 h-24 mx-auto mb-6 flex items-center justify-center text-5xl border ${styles.borderColor} metal-shine`}>
+                    <div
+                      className={`glass-metal ${styles.bgColor} rounded-2xl w-24 h-24 mx-auto mb-6 flex items-center justify-center text-5xl border ${styles.borderColor} metal-shine`}
+                    >
                       {selectedItem.icon}
                     </div>
                   );
                 })()}
-                
-                <h3 className={`text-2xl font-bold ${getRarityStyles(selectedItem.rarity).textColor} mb-3`}>
+
+                <h3
+                  className={`text-2xl font-bold ${
+                    getRarityStyles(selectedItem.rarity).textColor
+                  } mb-3`}
+                >
                   {selectedItem.name}
                 </h3>
-                <p className="text-muted-foreground mb-6">
-                  정말로 구매하시겠습니까?
-                </p>
-                
+                <p className="text-muted-foreground mb-6">정말로 구매하시겠습니까?</p>
+
                 <div className="text-3xl font-bold text-gradient-gold mb-2">
-                  {Math.floor(selectedItem.price * (1 - selectedItem.discount / 100)).toLocaleString()}G
+                  {Math.floor(
+                    selectedItem.price * (1 - selectedItem.discount / 100)
+                  ).toLocaleString()}
+                  G
                 </div>
                 {selectedItem.discount > 0 && (
                   <div className="text-sm text-muted-foreground line-through">

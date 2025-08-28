@@ -375,7 +375,9 @@ export function RealtimeSyncProvider({ children, apiBaseUrl }: RealtimeSyncProvi
   const pushToast = useCallback((message: string, type?: string) => {
     if (typeof window === 'undefined') return;
     try {
-      window.dispatchEvent(new CustomEvent('app:notification', { detail: { type: type || 'info', payload: message } }));
+      window.dispatchEvent(
+        new CustomEvent('app:notification', { detail: { type: type || 'info', payload: message } })
+      );
     } catch {
       // ignore
     }
@@ -383,101 +385,139 @@ export function RealtimeSyncProvider({ children, apiBaseUrl }: RealtimeSyncProvi
   const lastPurchaseByReceiptRef = useRef(new Map<string, { status: string; at: number }>());
 
   // Prefer the same origin resolution as unifiedApi to avoid cross-origin/SSR mismatches
-  const baseUrl = apiBaseUrl || API_ORIGIN || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000');
+  const baseUrl =
+    apiBaseUrl ||
+    API_ORIGIN ||
+    (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000');
 
   // WebSocket 메시지 핸들러
-  const handleWebSocketMessage = useCallback((message: WebSocketMessage) => {
-    console.log('[RealtimeSync] Received message:', message.type, message.data);
+  const handleWebSocketMessage = useCallback(
+    (message: WebSocketMessage) => {
+      console.log('[RealtimeSync] Received message:', message.type, message.data);
 
-    switch (message.type) {
-      case 'profile_update':
-        try {
-          const p = message.data as SyncEventData['profile_update'];
-          const goldPart = p && typeof p.gold === 'number' ? `잔액이 업데이트되었습니다: ${p.gold}G` : '프로필이 업데이트되었습니다.';
-          pushToast(goldPart, 'system');
-        } catch {}
-        dispatch({ type: 'UPDATE_PROFILE', payload: message.data });
-        break;
+      switch (message.type) {
+        case 'profile_update':
+          try {
+            const p = message.data as SyncEventData['profile_update'];
+            const goldPart =
+              p && typeof p.gold === 'number'
+                ? `잔액이 업데이트되었습니다: ${p.gold}G`
+                : '프로필이 업데이트되었습니다.';
+            pushToast(goldPart, 'system');
+          } catch {}
+          dispatch({ type: 'UPDATE_PROFILE', payload: message.data });
+          break;
 
-      case 'purchase_update': {
-        const data = message.data as SyncEventData['purchase_update'];
-        // 사용자 토스트 알림
-        const status = data?.status ?? 'pending';
-        const product = data?.product_id ? `상품 ${data.product_id}` : '구매';
-        let type: string = 'shop';
-        let text: string = '';
-        // 중복/전이 억제: 동일 receipt_code 기준 1.5초 내 동일 상태 무시, pending→final 병합
-        const key = data?.receipt_code || `${data?.user_id || 'me'}:${data?.product_id || ''}`;
-        const now = Date.now();
-        const last = key ? lastPurchaseByReceiptRef.current.get(key) : undefined;
-        if (last && last.status === status && now - last.at < 1500) {
-          break; // 동일 상태 단시간 재수신 무시
-        }
-        // pending 이후 최종 상태 도달 시 최종 상태만 노출
-        if (last && last.status === 'pending' && (status === 'success' || status === 'failed')) {
-          // 계속 진행 (pending 토스트는 생략하고 최종만 표시)
-        }
-        lastPurchaseByReceiptRef.current.set(key, { status, at: now });
+        case 'purchase_update': {
+          const data = message.data as SyncEventData['purchase_update'];
+          // 사용자 토스트 알림
+          const status = data?.status ?? 'pending';
+          const product = data?.product_id ? `상품 ${data.product_id}` : '구매';
+          let type: string = 'shop';
+          let text: string = '';
+          // 중복/전이 억제: 동일 receipt_code 기준 1.5초 내 동일 상태 무시, pending→final 병합
+          const key = data?.receipt_code || `${data?.user_id || 'me'}:${data?.product_id || ''}`;
+          const now = Date.now();
+          const last = key ? lastPurchaseByReceiptRef.current.get(key) : undefined;
+          if (last && last.status === status && now - last.at < 1500) {
+            break; // 동일 상태 단시간 재수신 무시
+          }
+          // pending 이후 최종 상태 도달 시 최종 상태만 노출
+          if (last && last.status === 'pending' && (status === 'success' || status === 'failed')) {
+            // 계속 진행 (pending 토스트는 생략하고 최종만 표시)
+          }
+          lastPurchaseByReceiptRef.current.set(key, { status, at: now });
 
-        if (status === 'success') {
-          type = 'success';
-          text = `${product} 결제가 완료되었습니다${data?.amount ? ` (금액: ${data.amount})` : ''}.`;
-        } else if (status === 'failed') {
-          type = 'error';
-          text = `${product} 결제가 실패했습니다${data?.reason_code ? ` (${data.reason_code})` : ''}.`;
-        } else if (status === 'idempotent_reuse') {
-          type = 'system';
-          text = `${product} 결제가 이미 처리되었습니다.`;
-        } else {
-          type = 'shop';
-          text = `${product} 결제가 진행 중입니다...`;
+          if (status === 'success') {
+            type = 'success';
+            text = `${product} 결제가 완료되었습니다${
+              data?.amount ? ` (금액: ${data.amount})` : ''
+            }.`;
+          } else if (status === 'failed') {
+            type = 'error';
+            text = `${product} 결제가 실패했습니다${
+              data?.reason_code ? ` (${data.reason_code})` : ''
+            }.`;
+          } else if (status === 'idempotent_reuse') {
+            type = 'system';
+            text = `${product} 결제가 이미 처리되었습니다.`;
+          } else {
+            type = 'shop';
+            text = `${product} 결제가 진행 중입니다...`;
+          }
+          pushToast(text, type);
+          // 전역 상태 업데이트(배지/요약용)
+          dispatch({ type: 'UPDATE_PURCHASE', payload: data });
+          break;
         }
-  pushToast(text, type);
-  // 전역 상태 업데이트(배지/요약용)
-  dispatch({ type: 'UPDATE_PURCHASE', payload: data });
-        break;
+
+        case 'achievement_progress':
+          dispatch({ type: 'UPDATE_ACHIEVEMENT', payload: message.data });
+          break;
+
+        case 'streak_update':
+          dispatch({ type: 'UPDATE_STREAK', payload: message.data });
+          break;
+
+        case 'event_progress':
+          dispatch({ type: 'UPDATE_EVENT', payload: message.data });
+          break;
+
+        case 'reward_granted':
+          try {
+            const r = message.data as SyncEventData['reward_granted'];
+            // 보상 데이터에서 금액 추정(awarded_gold 우선)
+            const data: any = r?.reward_data || {};
+            const amount =
+              (typeof data.awarded_gold === 'number' && data.awarded_gold) ||
+              (typeof data.gold === 'number' && data.gold) ||
+              (typeof data.amount === 'number' && data.amount);
+            const msg = amount
+              ? `보상 지급 +${amount}G (${r?.reward_type || 'reward'})`
+              : `보상 지급 (${r?.reward_type || 'reward'})`;
+            pushToast(msg, 'reward');
+          } catch {}
+          dispatch({ type: 'ADD_REWARD', payload: message.data });
+          break;
+
+        case 'stats_update':
+          dispatch({ type: 'UPDATE_STATS', payload: message.data });
+          break;
+
+        case 'pong':
+          // 하트비트 응답 - 특별한 처리 불요
+          break;
+
+        default:
+          console.warn('[RealtimeSync] Unknown message type:', message.type);
       }
+    },
+    [pushToast]
+  );
 
-      case 'achievement_progress':
-        dispatch({ type: 'UPDATE_ACHIEVEMENT', payload: message.data });
-        break;
-
-      case 'streak_update':
-        dispatch({ type: 'UPDATE_STREAK', payload: message.data });
-        break;
-
-      case 'event_progress':
-        dispatch({ type: 'UPDATE_EVENT', payload: message.data });
-        break;
-
-      case 'reward_granted':
-        try {
-          const r = message.data as SyncEventData['reward_granted'];
-          // 보상 데이터에서 금액 추정(awarded_gold 우선)
-          const data: any = r?.reward_data || {};
-          const amount = (typeof data.awarded_gold === 'number' && data.awarded_gold) || (typeof data.gold === 'number' && data.gold) || (typeof data.amount === 'number' && data.amount);
-          const msg = amount ? `보상 지급 +${amount}G (${r?.reward_type || 'reward'})` : `보상 지급 (${r?.reward_type || 'reward'})`;
-          pushToast(msg, 'reward');
-        } catch {}
-        dispatch({ type: 'ADD_REWARD', payload: message.data });
-        break;
-
-      case 'stats_update':
-        dispatch({ type: 'UPDATE_STATS', payload: message.data });
-        break;
-
-      case 'pong':
-        // 하트비트 응답 - 특별한 처리 불요
-        break;
-
-      default:
-        console.warn('[RealtimeSync] Unknown message type:', message.type);
-    }
-  }, [pushToast]);
+  // Test-only hook: allow E2E to simulate purchase_update without a real WS backend
+  // This is a no-op in production unless a CustomEvent is explicitly dispatched from the page context.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = (e: Event) => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const detail = (e as any).detail as SyncEventData['purchase_update'];
+        if (detail && typeof detail === 'object') {
+          dispatch({ type: 'UPDATE_PURCHASE', payload: detail });
+        }
+      } catch {
+        // ignore
+      }
+    };
+    window.addEventListener('realtime:test-purchase-update', handler as EventListener);
+    return () =>
+      window.removeEventListener('realtime:test-purchase-update', handler as EventListener);
+  }, []);
 
   // WebSocket 연결
   const connect = useCallback(async () => {
-  const token = getAccessToken() || (await getValidAccessToken());
+    const token = getAccessToken() || (await getValidAccessToken());
     if (!token || !user) {
       console.log('[RealtimeSync] Cannot connect - no token or user');
       return;
@@ -701,12 +741,9 @@ export function RealtimeSyncProvider({ children, apiBaseUrl }: RealtimeSyncProvi
 
   // 정리 작업 (오래된 보상 제거)
   useEffect(() => {
-    const interval = window.setInterval(
-      () => {
-        clearOldRewards();
-      },
-      10 * 60 * 1000
-    ); // 10분마다 정리
+    const interval = window.setInterval(() => {
+      clearOldRewards();
+    }, 10 * 60 * 1000); // 10분마다 정리
 
     return () => window.clearInterval(interval);
   }, [clearOldRewards]);

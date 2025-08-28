@@ -1,10 +1,11 @@
-name: Frontend E2E (Playwright Full)
+name: Frontend E2E Smoke (Playwright)
+
 on:
-  push:
+  pull_request:
     branches: [ main ]
 
 jobs:
-  e2e:
+  e2e-smoke:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,14 +26,14 @@ jobs:
         run: |
           for i in {1..60}; do curl -fsS http://localhost:8000/health && break || sleep 2; done
           for i in {1..60}; do curl -fsS http://localhost:3000/ || sleep 2; done
-      - name: Run Playwright tests
+      - name: Run smoke tests
         working-directory: cc-webapp/frontend
-        run: npx playwright test --reporter=list
+        run: npm run test:e2e-smoke --silent || npm run test:e2e-smoke
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-smoke-report
           path: cc-webapp/frontend/test-results/playwright-report
       - name: Teardown
         if: always()

@@ -29,6 +29,9 @@ import Tabs from '@/components/ui/navigation/Tabs';
 import { Button } from '@/components/ui/basic/button';
 import ModernCard from '@/components/ui/data-display/ModernCard';
 import RewardResultModal from '@/components/ui/feedback/RewardResultModal';
+import { useWithReconcile } from '@/lib/sync';
+import { useGlobalStore, applyReward } from '@/store/globalStore';
+import { api as unifiedApi } from '@/lib/unifiedApi';
 
 // 타입 정의
 interface UserLevel {
@@ -62,7 +65,12 @@ interface PointTransaction {
 }
 
 export default function RewardContainer() {
-  const [selectedTab, setSelectedTab] = useState('daily' as 'daily' | 'achievements' | 'level' | 'accumulated');
+  // 전역 store 및 withReconcile 훅
+  const { dispatch, state } = useGlobalStore();
+  const withReconcile = useWithReconcile();
+  const [selectedTab, setSelectedTab] = useState(
+    'daily' as 'daily' | 'achievements' | 'level' | 'accumulated'
+  );
   interface ModalState {
     isOpen: boolean;
     type: 'success' | 'error' | 'info';
@@ -94,7 +102,7 @@ export default function RewardContainer() {
     { day: 7, reward: '500 토큰', claimed: true, type: 'token' },
     { day: 8, reward: '300 토큰', claimed: false, type: 'token', today: true },
     { day: 9, reward: '무료 스핀 15회', claimed: false, type: 'spin' },
-    { day: 10, reward: '1000 토큰', claimed: false, type: 'token', special: true }
+    { day: 10, reward: '1000 토큰', claimed: false, type: 'token', special: true },
   ];
 
   // 업적 데이터
@@ -107,7 +115,7 @@ export default function RewardContainer() {
       target: 1,
       reward: '500 토큰',
       completed: true,
-      icon: <Trophy size={20} className="text-yellow-400" />
+      icon: <Trophy size={20} className="text-yellow-400" />,
     },
     {
       id: 'win-streak',
@@ -117,7 +125,7 @@ export default function RewardContainer() {
       target: 5,
       reward: '1000 토큰',
       completed: false,
-      icon: <Zap size={20} className="text-orange-400" />
+      icon: <Zap size={20} className="text-orange-400" />,
     },
     {
       id: 'slot-master',
@@ -127,7 +135,7 @@ export default function RewardContainer() {
       target: 100,
       reward: '2000 토큰',
       completed: false,
-      icon: <Gamepad2 size={20} className="text-purple-400" />
+      icon: <Gamepad2 size={20} className="text-purple-400" />,
     },
     {
       id: 'big-winner',
@@ -137,8 +145,8 @@ export default function RewardContainer() {
       target: 1,
       reward: '5000 토큰',
       completed: false,
-      icon: <Star size={20} className="text-blue-400" />
-    }
+      icon: <Star size={20} className="text-blue-400" />,
+    },
   ];
 
   // 레벨업 보상 데이터
@@ -149,7 +157,7 @@ export default function RewardContainer() {
     { level: 17, reward: '1600 토큰', claimed: false },
     { level: 18, reward: '1800 토큰', claimed: false },
     { level: 19, reward: '2000 토큰', claimed: false },
-    { level: 20, reward: 'VIP 업그레이드', claimed: false, special: true }
+    { level: 20, reward: 'VIP 업그레이드', claimed: false, special: true },
   ];
 
   // 누적 보상함 데이터
@@ -160,7 +168,7 @@ export default function RewardContainer() {
       amount: '300 토큰',
       source: '7일 연속 출석',
       time: '2시간 전',
-      claimed: false
+      claimed: false,
     },
     {
       id: 'achievement-reward',
@@ -168,7 +176,7 @@ export default function RewardContainer() {
       amount: '500 토큰',
       source: '첫 승리 달성',
       time: '5시간 전',
-      claimed: false
+      claimed: false,
     },
     {
       id: 'level-reward',
@@ -176,25 +184,48 @@ export default function RewardContainer() {
       amount: '1200 토큰',
       source: '레벨 15 달성',
       time: '1일 전',
-      claimed: true
-    }
+      claimed: true,
+    },
   ];
 
   // 핸들러 함수들
-  const handleDailyRewardClaim = (day: number, reward: string, type: string) => {
-    const rewardAmount = parseInt(reward.match(/\d+/)?.[0] || '0');
-    setModal({
-      isOpen: true,
-      type: 'success',
-      title: '출석 보상 획득!',
-      message: `${day}일차 출석 보상을 성공적으로 받았습니다.`,
-      reward: {
-        type: type === 'token' ? 'token' : 'bonus',
-        amount: rewardAmount || undefined,
-        name: reward,
-        icon: type === 'token' ? <Coins className="w-6 h-6 text-yellow-400" /> : <Star className="w-6 h-6 text-blue-400" />
+  const handleDailyRewardClaim = async (day: number, rewardLabel: string, type: string) => {
+    // 서버 권위 API 호출로 변경: POST /api/streak/claim
+    try {
+      const result: any = await withReconcile(async () => {
+        return unifiedApi.post('streak/claim', { action_type: 'DAILY_LOGIN' });
+      });
+      // 응답 예시: { awarded_gold, awarded_xp, new_gold_balance, streak_count }
+      const awarded = Number(result?.awarded_gold || 0);
+      if (Number.isFinite(awarded) && awarded > 0) {
+        // 낙관 적용: 전역 store에 보상 반영(WS reward_granted와 중복 시 이후 hydrate로 수렴)
+        applyReward(dispatch, awarded, 'gold');
       }
-    });
+      setModal({
+        isOpen: true,
+        type: 'success',
+        title: '출석 보상 획득!',
+        message: `${day}일차 출석 보상을 성공적으로 받았습니다.`,
+        reward: {
+          type: 'token',
+          amount: awarded || undefined,
+          name: awarded ? `${awarded} 토큰` : rewardLabel,
+          icon: <Coins className="w-6 h-6 text-yellow-400" />,
+        },
+      });
+    } catch (e: any) {
+      // 이미 수령한 경우 등 메시지 통일
+      const msg = String(e?.message || '보상 수령에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      const already = msg.includes('already claimed') || msg.includes('하루에 1번');
+      setModal({
+        isOpen: true,
+        type: already ? 'info' : 'error',
+        title: already ? '이미 수령된 출석 보상' : '보상 수령 실패',
+        message: already
+          ? '오늘의 출석 보상은 이미 수령하였습니다.'
+          : '네트워크 혹은 서버 오류로 보상을 받지 못했습니다.',
+      });
+    }
   };
 
   const handleAchievementClaim = (title: string, reward: string) => {
@@ -208,8 +239,8 @@ export default function RewardContainer() {
         type: 'token',
         amount: rewardAmount,
         name: reward,
-        icon: <Trophy className="w-6 h-6 text-amber-400" />
-      }
+        icon: <Trophy className="w-6 h-6 text-amber-400" />,
+      },
     });
   };
 
@@ -224,8 +255,12 @@ export default function RewardContainer() {
         type: reward.includes('VIP') ? 'bonus' : 'token',
         amount: rewardAmount || undefined,
         name: reward,
-        icon: reward.includes('VIP') ? <Crown className="w-6 h-6 text-purple-400" /> : <Coins className="w-6 h-6 text-yellow-400" />
-      }
+        icon: reward.includes('VIP') ? (
+          <Crown className="w-6 h-6 text-purple-400" />
+        ) : (
+          <Coins className="w-6 h-6 text-yellow-400" />
+        ),
+      },
     });
   };
 
@@ -240,8 +275,8 @@ export default function RewardContainer() {
         type: 'token',
         amount: rewardAmount,
         name: amount,
-        icon: <Gift className="w-6 h-6 text-green-400" />
-      }
+        icon: <Gift className="w-6 h-6 text-green-400" />,
+      },
     });
   };
 
@@ -255,46 +290,47 @@ export default function RewardContainer() {
   const nextLevelExp = 1000;
 
   return (
-    <div className="min-h-screen w-full"
-         style={{ 
-           background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 25%, #0f0f23 50%, #1a1a2e 75%, #0a0a0a 100%)',
-           color: '#ffffff',
-           fontFamily: "'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif",
-           position: 'relative'
-         }}>
-
+    <div
+      className="min-h-screen w-full"
+      style={{
+        background:
+          'linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 25%, #0f0f23 50%, #1a1a2e 75%, #0a0a0a 100%)',
+        color: '#ffffff',
+        fontFamily: "'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif",
+        position: 'relative',
+      }}
+    >
       {/* 프리미엄 배경 오버레이 */}
-      <div style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: `
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: `
           radial-gradient(circle at 20% 20%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
           radial-gradient(circle at 80% 80%, rgba(79, 70, 229, 0.08) 0%, transparent 50%),
           radial-gradient(circle at 40% 60%, rgba(168, 85, 247, 0.05) 0%, transparent 50%)
         `,
-        pointerEvents: 'none'
-      }} />
+          pointerEvents: 'none',
+        }}
+      />
 
       <div className="max-w-md mx-auto px-4 py-4 space-y-4 relative z-10">
-        
         {/* 프리미엄 헤더 */}
-        <motion.div 
+        <motion.div
           className="text-center py-6"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
+          transition={{ duration: 0.8, ease: 'easeOut' }}
         >
-          <h1 className="text-white text-2xl font-bold tracking-tight mb-2">
-            🏆 리워드 센터
-          </h1>
+          <h1 className="text-white text-2xl font-bold tracking-tight mb-2">🏆 리워드 센터</h1>
           <p className="text-gray-400 text-sm">플레이어 업적과 보상</p>
         </motion.div>
 
         {/* 탭 메뉴 */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.1 }}
@@ -304,10 +340,12 @@ export default function RewardContainer() {
               { key: 'daily', label: '일일 출석', icon: <Calendar className="w-4 h-4" /> },
               { key: 'achievements', label: '업적', icon: <Trophy className="w-4 h-4" /> },
               { key: 'level', label: '레벨업', icon: <BarChart3 className="w-4 h-4" /> },
-              { key: 'accumulated', label: '누적', icon: <Star className="w-4 h-4" /> }
+              { key: 'accumulated', label: '누적', icon: <Star className="w-4 h-4" /> },
             ]}
             activeTab={selectedTab}
-            onTabChange={(key) => setSelectedTab(key as 'daily' | 'achievements' | 'level' | 'accumulated')}
+            onTabChange={(key) =>
+              setSelectedTab(key as 'daily' | 'achievements' | 'level' | 'accumulated')
+            }
             variant="default"
             size="sm"
           />
@@ -315,19 +353,22 @@ export default function RewardContainer() {
 
         {/* 일일 출석 체크 */}
         {selectedTab === 'daily' && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.4 }}
             className="space-y-4"
           >
             {/* 출석 현황 */}
-            <div className="rounded-xl p-4 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-400/30"
-                 style={{
-                   background: 'linear-gradient(145deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.08) 50%, rgba(59,130,246,0.05) 100%)',
-                   border: '1px solid rgba(255,255,255,0.2)',
-                   backdropFilter: 'blur(10px)'
-                 }}>
+            <div
+              className="rounded-xl p-4 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-400/30"
+              style={{
+                background:
+                  'linear-gradient(145deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.08) 50%, rgba(59,130,246,0.05) 100%)',
+                border: '1px solid rgba(255,255,255,0.2)',
+                backdropFilter: 'blur(10px)',
+              }}
+            >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Calendar size={20} className="text-blue-400" />
@@ -352,36 +393,36 @@ export default function RewardContainer() {
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.3, delay: index * 0.05 }}
                   className={`relative rounded-xl p-3 text-center cursor-pointer transition-all duration-300 ${
-                    day.claimed 
-                      ? 'bg-green-500/20 border border-green-400/30' 
-                      : day.today 
-                        ? 'bg-yellow-500/20 border border-yellow-400/30 animate-pulse' 
-                        : day.special
-                          ? 'bg-purple-500/20 border border-purple-400/30'
-                          : 'bg-gray-600/20 border border-gray-400/30'
+                    day.claimed
+                      ? 'bg-green-500/20 border border-green-400/30'
+                      : day.today
+                      ? 'bg-yellow-500/20 border border-yellow-400/30 animate-pulse'
+                      : day.special
+                      ? 'bg-purple-500/20 border border-purple-400/30'
+                      : 'bg-gray-600/20 border border-gray-400/30'
                   }`}
                   onClick={() => {
                     if (day.today && !day.claimed) {
+                      // 서버 권위 API: streak/claim 호출
                       handleDailyRewardClaim(day.day, day.reward, day.type);
                     }
                   }}
                   style={{
-                    background: `${day.claimed ? 
-                      'linear-gradient(145deg, rgba(255,255,255,0.08) 0%, rgba(16,185,129,0.05) 100%)' :
-                      day.today ?
-                      'linear-gradient(145deg, rgba(255,255,255,0.08) 0%, rgba(245,158,11,0.05) 100%)' :
-                      day.special ?
-                      'linear-gradient(145deg, rgba(255,255,255,0.08) 0%, rgba(139,92,246,0.05) 100%)' :
-                      'linear-gradient(145deg, rgba(255,255,255,0.04) 0%, rgba(107,114,128,0.05) 100%)'
+                    background: `${
+                      day.claimed
+                        ? 'linear-gradient(145deg, rgba(255,255,255,0.08) 0%, rgba(16,185,129,0.05) 100%)'
+                        : day.today
+                        ? 'linear-gradient(145deg, rgba(255,255,255,0.08) 0%, rgba(245,158,11,0.05) 100%)'
+                        : day.special
+                        ? 'linear-gradient(145deg, rgba(255,255,255,0.08) 0%, rgba(139,92,246,0.05) 100%)'
+                        : 'linear-gradient(145deg, rgba(255,255,255,0.04) 0%, rgba(107,114,128,0.05) 100%)'
                     }`,
-                    backdropFilter: 'blur(10px)'
+                    backdropFilter: 'blur(10px)',
                   }}
                 >
                   <div className="text-xs text-gray-400 mb-1">Day {day.day}</div>
                   <div className="text-xs text-white font-medium mb-1">{day.reward}</div>
-                  {day.claimed && (
-                    <CheckCircle size={14} className="text-green-400 mx-auto" />
-                  )}
+                  {day.claimed && <CheckCircle size={14} className="text-green-400 mx-auto" />}
                   {day.today && (
                     <div className="w-2 h-2 bg-yellow-400 rounded-full mx-auto animate-ping"></div>
                   )}
@@ -396,7 +437,7 @@ export default function RewardContainer() {
 
         {/* 업적 시스템 */}
         {selectedTab === 'achievements' && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.4 }}
@@ -409,7 +450,7 @@ export default function RewardContainer() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
                 className={`rounded-xl p-4 transition-all duration-300 cursor-pointer ${
-                  achievement.completed 
+                  achievement.completed
                     ? 'bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-400/30'
                     : 'bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-400/30'
                 }`}
@@ -419,33 +460,30 @@ export default function RewardContainer() {
                   }
                 }}
                 style={{
-                  background: `${achievement.completed ?
-                    'linear-gradient(145deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.08) 50%, rgba(16,185,129,0.05) 100%)' :
-                    'linear-gradient(145deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.08) 50%, rgba(251,146,60,0.05) 100%)'
+                  background: `${
+                    achievement.completed
+                      ? 'linear-gradient(145deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.08) 50%, rgba(16,185,129,0.05) 100%)'
+                      : 'linear-gradient(145deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.08) 50%, rgba(251,146,60,0.05) 100%)'
                   }`,
                   border: '1px solid rgba(255,255,255,0.2)',
-                  backdropFilter: 'blur(10px)'
+                  backdropFilter: 'blur(10px)',
                 }}
               >
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
                     {achievement.icon}
                   </div>
-                  
+
                   <div className="flex-1">
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-white text-base font-semibold">
-                        {achievement.title}
-                      </h3>
+                      <h3 className="text-white text-base font-semibold">{achievement.title}</h3>
                       {achievement.completed && (
                         <CheckCircle size={18} className="text-green-400" />
                       )}
                     </div>
-                    
-                    <p className="text-gray-300 text-sm mb-3">
-                      {achievement.description}
-                    </p>
-                    
+
+                    <p className="text-gray-300 text-sm mb-3">{achievement.description}</p>
+
                     {/* 진행률 바 */}
                     {!achievement.completed && (
                       <div className="mb-3">
@@ -458,7 +496,7 @@ export default function RewardContainer() {
                         />
                       </div>
                     )}
-                    
+
                     <div className="flex items-center justify-between">
                       <span className="text-yellow-400 text-sm font-medium">
                         보상: {achievement.reward}
@@ -474,19 +512,22 @@ export default function RewardContainer() {
 
         {/* 레벨업 보상 */}
         {selectedTab === 'level' && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.4 }}
             className="space-y-4"
           >
             {/* 현재 레벨 정보 */}
-            <div className="rounded-xl p-4 bg-gradient-to-r from-purple-500/20 to-indigo-500/20 border border-purple-400/30"
-                 style={{
-                   background: 'linear-gradient(145deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.08) 50%, rgba(139,92,246,0.05) 100%)',
-                   border: '1px solid rgba(255,255,255,0.2)',
-                   backdropFilter: 'blur(10px)'
-                 }}>
+            <div
+              className="rounded-xl p-4 bg-gradient-to-r from-purple-500/20 to-indigo-500/20 border border-purple-400/30"
+              style={{
+                background:
+                  'linear-gradient(145deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.08) 50%, rgba(139,92,246,0.05) 100%)',
+                border: '1px solid rgba(255,255,255,0.2)',
+                backdropFilter: 'blur(10px)',
+              }}
+            >
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
                   <BarChart3 size={20} className="text-purple-400" />
@@ -496,11 +537,13 @@ export default function RewardContainer() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-purple-400 text-lg font-bold">{currentExp}/{nextLevelExp}</p>
+                  <p className="text-purple-400 text-lg font-bold">
+                    {currentExp}/{nextLevelExp}
+                  </p>
                   <p className="text-gray-400 text-xs">EXP</p>
                 </div>
               </div>
-              
+
               {/* EXP 바 */}
               <ProgressBar
                 value={currentExp}
@@ -518,14 +561,15 @@ export default function RewardContainer() {
                   key={reward.level}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: index * 0.05 }}                    className={`rounded-xl p-3 transition-all duration-300 ${
-                    reward.claimed 
+                  transition={{ duration: 0.6, delay: index * 0.05 }}
+                  className={`rounded-xl p-3 transition-all duration-300 ${
+                    reward.claimed
                       ? 'bg-green-500/20 border border-green-400/30'
                       : reward.current
-                        ? 'bg-purple-500/20 border border-purple-400/30 cursor-pointer'
-                        : reward.special
-                          ? 'bg-yellow-500/20 border border-yellow-400/30'
-                          : 'bg-gray-600/20 border border-gray-400/30'
+                      ? 'bg-purple-500/20 border border-purple-400/30 cursor-pointer'
+                      : reward.special
+                      ? 'bg-yellow-500/20 border border-yellow-400/30'
+                      : 'bg-gray-600/20 border border-gray-400/30'
                   }`}
                   onClick={() => {
                     if (reward.current && !reward.claimed) {
@@ -533,29 +577,30 @@ export default function RewardContainer() {
                     }
                   }}
                   style={{
-                    background: `${reward.claimed ?
-                      'linear-gradient(145deg, rgba(255,255,255,0.08) 0%, rgba(16,185,129,0.05) 100%)' :
-                      reward.current ?
-                      'linear-gradient(145deg, rgba(255,255,255,0.08) 0%, rgba(139,92,246,0.05) 100%)' :
-                      reward.special ?
-                      'linear-gradient(145deg, rgba(255,255,255,0.08) 0%, rgba(245,158,11,0.05) 100%)' :
-                      'linear-gradient(145deg, rgba(255,255,255,0.04) 0%, rgba(107,114,128,0.05) 100%)'
+                    background: `${
+                      reward.claimed
+                        ? 'linear-gradient(145deg, rgba(255,255,255,0.08) 0%, rgba(16,185,129,0.05) 100%)'
+                        : reward.current
+                        ? 'linear-gradient(145deg, rgba(255,255,255,0.08) 0%, rgba(139,92,246,0.05) 100%)'
+                        : reward.special
+                        ? 'linear-gradient(145deg, rgba(255,255,255,0.08) 0%, rgba(245,158,11,0.05) 100%)'
+                        : 'linear-gradient(145deg, rgba(255,255,255,0.04) 0%, rgba(107,114,128,0.05) 100%)'
                     }`,
-                    backdropFilter: 'blur(10px)'
+                    backdropFilter: 'blur(10px)',
                   }}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${
-                        reward.current ? 'bg-purple-500 text-white' : 'bg-white/10 text-gray-400'
-                      }`}>
+                      <div
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${
+                          reward.current ? 'bg-purple-500 text-white' : 'bg-white/10 text-gray-400'
+                        }`}
+                      >
                         {reward.level}
                       </div>
-                      <span className="text-white text-sm font-medium">
-                        {reward.reward}
-                      </span>
+                      <span className="text-white text-sm font-medium">{reward.reward}</span>
                     </div>
-                    
+
                     {reward.claimed ? (
                       <CheckCircle size={18} className="text-green-400" />
                     ) : reward.current ? (
@@ -574,7 +619,7 @@ export default function RewardContainer() {
 
         {/* 누적 보상함 */}
         {selectedTab === 'accumulated' && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.4 }}
@@ -587,7 +632,7 @@ export default function RewardContainer() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
                 className={`rounded-xl p-4 transition-all duration-300 cursor-pointer ${
-                  reward.claimed 
+                  reward.claimed
                     ? 'bg-gray-600/20 border border-gray-400/30 opacity-60'
                     : 'bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-400/30'
                 }`}
@@ -597,43 +642,37 @@ export default function RewardContainer() {
                   }
                 }}
                 style={{
-                  background: `${reward.claimed ?
-                    'linear-gradient(145deg, rgba(255,255,255,0.04) 0%, rgba(107,114,128,0.05) 100%)' :
-                    'linear-gradient(145deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.08) 50%, rgba(5,150,105,0.05) 100%)'
+                  background: `${
+                    reward.claimed
+                      ? 'linear-gradient(145deg, rgba(255,255,255,0.04) 0%, rgba(107,114,128,0.05) 100%)'
+                      : 'linear-gradient(145deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.08) 50%, rgba(5,150,105,0.05) 100%)'
                   }`,
                   border: '1px solid rgba(255,255,255,0.2)',
-                  backdropFilter: 'blur(10px)'
+                  backdropFilter: 'blur(10px)',
                 }}
               >
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
-                    <Gift size={18} className={reward.claimed ? "text-gray-400" : "text-emerald-400"} />
+                    <Gift
+                      size={18}
+                      className={reward.claimed ? 'text-gray-400' : 'text-emerald-400'}
+                    />
                   </div>
-                  
+
                   <div className="flex-1">
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-white text-base font-semibold">
-                        {reward.title}
-                      </h3>
-                      {reward.claimed && (
-                        <CheckCircle size={18} className="text-green-400" />
-                      )}
+                      <h3 className="text-white text-base font-semibold">{reward.title}</h3>
+                      {reward.claimed && <CheckCircle size={18} className="text-green-400" />}
                     </div>
-                    
-                    <p className="text-emerald-400 text-sm font-medium mb-2">
-                      {reward.amount}
-                    </p>
-                    
+
+                    <p className="text-emerald-400 text-sm font-medium mb-2">{reward.amount}</p>
+
                     <div className="flex items-center justify-between">
-                      <span className="text-gray-400 text-xs">
-                        {reward.source}
-                      </span>
-                      <span className="text-gray-400 text-xs">
-                        {reward.time}
-                      </span>
+                      <span className="text-gray-400 text-xs">{reward.source}</span>
+                      <span className="text-gray-400 text-xs">{reward.time}</span>
                     </div>
                   </div>
-                  
+
                   {!reward.claimed && (
                     <ChevronRight size={18} className="text-emerald-400 flex-shrink-0" />
                   )}
