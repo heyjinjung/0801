@@ -1,8 +1,9 @@
 import os
 import json
 import logging
+import base64
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict, Field
@@ -152,16 +153,86 @@ class ActionItem(BaseModel):
     created_at: datetime
     action_data: Dict[str, Any]
 
+class CursorEnvelope(BaseModel):
+    items: List[ActionItem]
+    next_cursor: Optional[str] = None
 
-@router.get("/recent/{user_id}", response_model=List[ActionItem])
-async def recent_actions(user_id: int, limit: int = 20, db=Depends(get_db)):
-    q = (
+
+def _encode_cursor(dt: datetime, row_id: int) -> str:
+    # epoch ms + id 를 '.'로 연결 후 url-safe base64
+    ts_ms = int(dt.timestamp() * 1000)
+    raw = f"{ts_ms}.{row_id}".encode("utf-8")
+    return base64.urlsafe_b64encode(raw).decode("utf-8").rstrip("=")
+
+
+def _decode_cursor(cur: str) -> Optional[tuple]:
+    try:
+        # padding 복원
+        padding = '=' * (-len(cur) % 4)
+        raw = base64.urlsafe_b64decode((cur + padding).encode("utf-8")).decode("utf-8")
+        ts_ms_s, id_s = raw.split(".", 1)
+        ts_ms = int(ts_ms_s)
+        row_id = int(id_s)
+        # milliseconds to seconds float
+        ts = datetime.fromtimestamp(ts_ms / 1000.0, tz=timezone.utc)
+        return ts, row_id
+    except Exception:
+        return None
+
+
+@router.get("/recent/{user_id}", response_model=Union[List[ActionItem], CursorEnvelope])
+async def recent_actions(user_id: int, limit: int = 20, cursor: Optional[str] = None, mode: Optional[str] = None, db=Depends(get_db)):
+    """
+    최근 액션 목록.
+    - 기본: 배열 응답(List[ActionItem]) – 기존 호환성 유지
+    - 커서 모드: `?mode=cursor` 또는 `?cursor=...` 제공 시 { items, next_cursor } 래핑
+      cursor 규격: urlsafe-base64("<epoch_ms>.<id>")
+    """
+    safe_limit = max(1, min(200, limit))
+
+    # Base query
+    base_q = (
         db.query(models.UserAction)
         .filter(models.UserAction.user_id == user_id)
-        .order_by(models.UserAction.created_at.desc())
-        .limit(max(1, min(200, limit)))
-        .all()
+        .order_by(models.UserAction.created_at.desc(), models.UserAction.id.desc())
     )
+
+    is_cursor_mode = (mode == "cursor") or (cursor is not None)
+
+    if is_cursor_mode:
+        # 커서 파싱 → created_at, id 기준으로 엄격 페이징
+        if cursor:
+            decoded = _decode_cursor(cursor)
+            if decoded is not None:
+                cur_dt, cur_id = decoded
+                base_q = base_q.filter(
+                    (models.UserAction.created_at < cur_dt)
+                    | ((models.UserAction.created_at == cur_dt) & (models.UserAction.id < cur_id))
+                )
+
+        rows = base_q.limit(safe_limit + 1).all()
+        has_more = len(rows) > safe_limit
+        page_rows = rows[:safe_limit]
+        items: List[ActionItem] = []
+        for r in page_rows:
+            try:
+                data = json.loads(r.action_data or "{}")
+            except Exception:
+                data = {}
+            items.append(ActionItem(id=r.id, action_type=r.action_type, created_at=r.created_at, action_data=data))
+
+        next_cur: Optional[str] = None
+        if has_more and page_rows:
+            last = page_rows[-1]
+            # created_at이 tz 정보 포함이므로 UTC로 보정
+            last_dt = last.created_at
+            if last_dt.tzinfo is None:
+                last_dt = last_dt.replace(tzinfo=timezone.utc)
+            next_cur = _encode_cursor(last_dt, last.id)
+        return CursorEnvelope(items=items, next_cursor=next_cur)
+
+    # 기본 배열 응답
+    q = base_q.limit(safe_limit).all()
     out: List[ActionItem] = []
     for r in q:
         try:

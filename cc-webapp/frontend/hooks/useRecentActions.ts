@@ -43,7 +43,7 @@ export function useRecentActions(userId?: number, limit = 10, auto = true) {
 
     setLoading(true); setError(null);
     const p = api
-      .get(`actions/recent/${userId}?limit=${encodeURIComponent(limit)}`)
+      .get(`actions/recent/${userId}?limit=${encodeURIComponent(limit)}&mode=cursor`)
       .then((res: RecentActionsResponse) => {
         lastFetchedRef.current = Date.now();
 
@@ -97,7 +97,7 @@ export function useRecentActions(userId?: number, limit = 10, auto = true) {
       if (inFlightRef.current) return inFlightRef.current;
       setLoading(true); setError(null);
       const p = api
-        .get(`actions/recent/${userId}?limit=${encodeURIComponent(limit)}&cursor=${encodeURIComponent(nextCursor)}`)
+        .get(`actions/recent/${userId}?limit=${encodeURIComponent(limit)}&mode=cursor&cursor=${encodeURIComponent(nextCursor)}`)
         .then((res: RecentActionsResponse) => {
           // Expect cursor response; fallback safe-guards
           let newItems: RecentAction[] = [];

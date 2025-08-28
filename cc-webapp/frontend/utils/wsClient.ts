@@ -17,6 +17,12 @@ export interface SyncEventData {
     tier?: string;
     total_spent?: number;
   };
+  user_action?: {
+    user_id: number;
+    action_type: string;
+    action_data?: Record<string, any>;
+    created_at?: string; // 서버가 보낼 수 있는 경우, 없으면 클라이언트 수신 시각 사용
+  };
   purchase_update?: {
     user_id: number;
     status: 'pending' | 'success' | 'failed' | 'idempotent_reuse';

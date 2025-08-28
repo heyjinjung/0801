@@ -274,3 +274,24 @@ export function useRealtimePurchases() {
         lastUpdated: state.purchase?.last_updated,
     };
 }
+
+/**
+ * 최근 사용자 액션(WS 버퍼) 훅
+ * - RealtimeSyncContext.state.recent_user_actions 노출
+ * - 선택적으로 userId로 필터링
+ */
+export function useRealtimeUserActions(userId?: number) {
+    const { state } = useRealtimeSync();
+
+    const list = useMemo(() => {
+        const all = state.recent_user_actions || [];
+        if (!userId || userId <= 0) return all;
+        return all.filter((a) => a.user_id === userId);
+    }, [state.recent_user_actions, userId]);
+
+    return {
+        actions: list,
+        hasBuffer: list.length > 0,
+        latestAt: list[0]?.timestamp,
+    };
+}

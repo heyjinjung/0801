@@ -93,6 +93,15 @@ export interface RealtimeSyncState {
     timestamp: string; // 수신 시각
   }>;
 
+  // 최근 사용자 액션(WS 기반 경량 로그, 최대 50개)
+  recent_user_actions: Array<{
+    id?: string | number;
+    user_id: number;
+    action_type: string;
+    action_data?: Record<string, any>;
+    timestamp: string; // 수신 시각 또는 created_at
+  }>;
+
   // WebSocket 연결 상태
   connection: {
     status: 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
@@ -121,7 +130,8 @@ type SyncAction =
   | { type: 'CLEAR_OLD_REWARDS' }
   | { type: 'SET_LAST_POLL_TIME'; payload: string }
   | { type: 'INITIALIZE_STATE'; payload: Partial<RealtimeSyncState> }
-  | { type: 'UPDATE_PURCHASE'; payload: SyncEventData['purchase_update'] };
+  | { type: 'UPDATE_PURCHASE'; payload: SyncEventData['purchase_update'] }
+  | { type: 'ADD_USER_ACTION'; payload: SyncEventData['user_action'] };
 
 /**
  * 초기 상태
@@ -142,6 +152,7 @@ const initialState: RealtimeSyncState = {
     pending_count: 0,
   },
   recent_purchases: [],
+  recent_user_actions: [],
   connection: {
     status: 'disconnected',
     reconnect_attempts: 0,
@@ -297,6 +308,29 @@ function syncStateReducer(state: RealtimeSyncState, action: SyncAction): Realtim
           last_updated: timestamp,
         },
         recent_purchases: trimmed,
+      };
+    }
+
+    case 'ADD_USER_ACTION': {
+      const ua = action.payload;
+      if (!ua) return state;
+      const timestamp = (ua as any)?.created_at || new Date().toISOString();
+      const entry = {
+        id: (ua as any)?.id,
+        user_id: ua.user_id,
+        action_type: ua.action_type,
+        action_data: ua.action_data,
+        timestamp,
+      } as const;
+      // 상단 프리팬드, 최대 50개 유지, 동일 (id||timestamp+type) 기준 중복 제거
+      const key = entry.id ?? `${entry.timestamp}:${entry.action_type}`;
+      const dedup = [entry, ...state.recent_user_actions].filter((v, idx, arr) => {
+        const k = (v.id ?? `${v.timestamp}:${v.action_type}`) as any;
+        return arr.findIndex((w) => (w.id ?? `${w.timestamp}:${w.action_type}`) === k) === idx;
+      });
+      return {
+        ...state,
+        recent_user_actions: dedup.slice(0, 50),
       };
     }
 
@@ -484,6 +518,11 @@ export function RealtimeSyncProvider({ children, apiBaseUrl }: RealtimeSyncProvi
           dispatch({ type: 'UPDATE_STATS', payload: message.data });
           break;
 
+        case 'user_action':
+          // 최근 사용자 액션 버퍼에 프리팬드. 별도 토스트는 기본 비활성(과다 노이즈 방지)
+          dispatch({ type: 'ADD_USER_ACTION', payload: message.data });
+          break;
+
         case 'pong':
           // 하트비트 응답 - 특별한 처리 불요
           break;
@@ -513,6 +552,25 @@ export function RealtimeSyncProvider({ children, apiBaseUrl }: RealtimeSyncProvi
     window.addEventListener('realtime:test-purchase-update', handler as EventListener);
     return () =>
       window.removeEventListener('realtime:test-purchase-update', handler as EventListener);
+  }, []);
+
+  // Test-only: recent user action injection for E2E without real WS
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = (e: Event) => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const detail = (e as any).detail as SyncEventData['user_action'];
+        if (detail && typeof detail === 'object') {
+          dispatch({ type: 'ADD_USER_ACTION', payload: detail });
+        }
+      } catch {
+        // ignore
+      }
+    };
+    window.addEventListener('realtime:test-user-action', handler as EventListener);
+    return () =>
+      window.removeEventListener('realtime:test-user-action', handler as EventListener);
   }, []);
 
   // WebSocket 연결

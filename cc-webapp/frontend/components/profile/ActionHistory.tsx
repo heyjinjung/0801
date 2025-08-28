@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import useRecentActions, { RecentAction } from '@/hooks/useRecentActions';
+import { useRealtimeUserActions } from '@/hooks/useRealtimeData';
 import { useGlobalProfile } from '@/store/globalStore';
 
 /**
@@ -23,7 +24,24 @@ export default function ActionHistory() {
     !!userId
   );
 
+  // WS 버퍼(최근 사용자 액션) → 상단 프리팬드 병합
+  const { actions: wsActions } = useRealtimeUserActions(userId);
+  const mergedActions = React.useMemo(() => {
+    const base = Array.isArray(actions) ? actions : [];
+    // WS 액션을 API 기반 목록 상단에 프리팬드, id 기준 중복 제거
+    const combined = [...(wsActions || []), ...base];
+    const seen = new Set<string | number>();
+    const dedup = combined.filter((a: any) => {
+      const id = (a?.id ?? `${a?.timestamp}:${a?.action_type}`) as string | number;
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+    return dedup as RecentAction[];
+  }, [actions, wsActions]);
+
   const sentinelRef = useRef(null as any);
+  const lastAutoLoadAtRef = useRef(0);
 
   const onLoadMore = useCallback(() => {
     // 하이브리드: 커서 모드면 API 요청, 배열 모드면 limit 증가
@@ -47,6 +65,9 @@ export default function ActionHistory() {
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting && !loading && hasMore) {
+            const now = Date.now();
+            if (now - lastAutoLoadAtRef.current < 400) return; // 짧은 쿨다운
+            lastAutoLoadAtRef.current = now;
             onLoadMore();
           }
         });
@@ -69,20 +90,20 @@ export default function ActionHistory() {
 
       {error && <div className="mb-3 text-sm text-red-400">불러오기 오류: {error}</div>}
 
-      {!actions || actions.length === 0 ? (
+    {!mergedActions || mergedActions.length === 0 ? (
         <div className="text-sm text-muted-foreground">표시할 활동이 없습니다.</div>
       ) : (
         <div className="space-y-2" aria-label="action-history-list" role="list">
-          {actions.map((a: RecentAction) => (
+      {mergedActions.map((a: RecentAction) => (
             <div
               role="listitem"
-              key={`${a.id}`}
+        key={`${a.id ?? `${(a as any).timestamp}:${a.action_type}`}`}
               className="flex items-center justify-between rounded-lg p-3 border border-border/50 bg-card/40"
             >
               <div className="text-sm">
                 <div className="font-medium">{a.action_type}</div>
                 <div className="text-muted-foreground text-xs">
-                  {new Date(a.created_at).toLocaleString()}
+          {new Date((a as any).created_at || (a as any).timestamp).toLocaleString()}
                 </div>
               </div>
               {a.action_data && (
