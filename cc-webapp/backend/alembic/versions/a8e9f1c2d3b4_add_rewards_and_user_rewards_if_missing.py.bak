@@ -1,0 +1,8 @@
+"""
+Renamed to .bak to avoid Alembic parsing.
+Original filename: a8e9f1c2d3b4_add_rewards_and_user_rewards_if_missing.py
+Reason: File had no revision metadata and caused Alembic to fail resolving revision id at boot.
+
+Project rule: Alembic must maintain a single head; invalid placeholder scripts must not be parsed.
+Future: If needed, implement a proper revision with revision/down_revision against current head and idempotent ops.
+"""
