@@ -15,6 +15,8 @@ import { useRealtimeProfile, useRealtimeStats } from '@/hooks/useRealtimeData';
 import { Input } from './ui/input';
 import { useWithReconcile } from '@/lib/sync';
 import { useGlobalStore, mergeProfile } from '@/store/globalStore';
+import ProfileStats from '@/components/profile/ProfileStats';
+import ActionHistory from '@/components/profile/ActionHistory';
 
 interface ProfileScreenProps {
   onBack: () => void;
@@ -69,20 +71,20 @@ export function ProfileScreen({
 
   const fetchProfileBundle = async () => {
     console.log('[fetchProfileBundle] 시작');
-    
+
     try {
       const [rawProfile, rawStats, rawBalance] = await Promise.all([
         unifiedApi.get('auth/me'),
         unifiedApi.get('users/stats'),
         unifiedApi.get('users/balance'),
       ]);
-      
+
       console.log('[fetchProfileBundle] API 응답 받음:', {
         profile: rawProfile,
         stats: rawStats,
-        balance: rawBalance
+        balance: rawBalance,
       });
-      
+
       const profileData: any = {
         ...rawProfile,
         experience: (rawProfile as any).experience ?? (rawProfile as any).xp ?? 0,
@@ -105,7 +107,10 @@ export function ProfileScreen({
           (rawStats as any).totalGames ||
           0,
         total_wins:
-          (rawStats as any).total_wins || (rawStats as any).totalWins || (rawStats as any).wins || 0,
+          (rawStats as any).total_wins ||
+          (rawStats as any).totalWins ||
+          (rawStats as any).wins ||
+          0,
       };
       const balanceData: any = {
         ...rawBalance,
@@ -115,11 +120,11 @@ export function ProfileScreen({
           (rawBalance as any).tokens ||
           0,
       };
-  setUser(profileData as any);
-  setStats(statsData as any);
-  setBalance(balanceData as any);
-  // 공용 user 상태와 동기화: GOLD 일관성 확보(중앙 훅 사용)
-  reconcileWith((balanceData as any)?.cyber_token_balance);
+      setUser(profileData as any);
+      setStats(statsData as any);
+      setBalance(balanceData as any);
+      // 공용 user 상태와 동기화: GOLD 일관성 확보(중앙 훅 사용)
+      reconcileWith((balanceData as any)?.cyber_token_balance);
     } catch (error) {
       console.error('[fetchProfileBundle] 오류:', error);
       throw error;
@@ -145,7 +150,9 @@ export function ProfileScreen({
         // 전역 프로필 병합
         mergeProfile(dispatch, res);
         // 로컬 표시용 상태도 즉시 갱신하여 UI가 바로 반영되도록 처리
-        setUser((prev: any) => (prev ? { ...prev, nickname: res.nickname ?? prev.nickname } : prev));
+        setUser((prev: any) =>
+          prev ? { ...prev, nickname: res.nickname ?? prev.nickname } : prev
+        );
       }
       onAddNotification('닉네임이 저장되었습니다.');
       setIsEditingNickname(false);
@@ -167,9 +174,9 @@ export function ProfileScreen({
       console.log('[DEV] 자동 로그인 환경변수:', {
         enable,
         siteId: env?.NEXT_PUBLIC_DEV_SITE_ID || 'test123',
-        password: env?.NEXT_PUBLIC_DEV_PASSWORD || 'password123'
+        password: env?.NEXT_PUBLIC_DEV_PASSWORD || 'password123',
       });
-      
+
       const siteId = env?.NEXT_PUBLIC_DEV_SITE_ID || 'test123';
       const password = env?.NEXT_PUBLIC_DEV_PASSWORD || 'password123';
       const invite = env?.NEXT_PUBLIC_DEV_INVITE_CODE || '5858';
@@ -183,7 +190,13 @@ export function ProfileScreen({
         console.log('[DEV] 로그인 실패, 회원가입 시도:', e);
         // 2) 로그인 실패 시 자동 회원가입 후 재로그인
         try {
-          console.log('[DEV] 회원가입 시도 with:', { siteId, nickname: siteId, phone_number: '010-0000-0000', password, invite_code: invite });
+          console.log('[DEV] 회원가입 시도 with:', {
+            siteId,
+            nickname: siteId,
+            phone_number: '010-0000-0000',
+            password,
+            invite_code: invite,
+          });
           await unifiedApi.post(
             'auth/signup',
             {
@@ -300,8 +313,8 @@ export function ProfileScreen({
   useEffect(() => {
     const handler = () => {
       if (document.visibilityState === 'visible') {
-  // 전역 프로필과 로컬 번들 동시 갱신(누락 값 폴백 유지)
-  Promise.allSettled([refreshRtProfile(), fetchProfileBundle()]).then(() => {});
+        // 전역 프로필과 로컬 번들 동시 갱신(누락 값 폴백 유지)
+        Promise.allSettled([refreshRtProfile(), fetchProfileBundle()]).then(() => {});
       }
     };
     document.addEventListener('visibilitychange', handler);
@@ -311,8 +324,8 @@ export function ProfileScreen({
   // 주기 갱신 타이머
   useEffect(() => {
     const id = setInterval(() => {
-  // 전역 프로필과 로컬 보조 데이터 동시 갱신
-  Promise.allSettled([refreshRtProfile(), fetchProfileBundle()]).then(() => {});
+      // 전역 프로필과 로컬 보조 데이터 동시 갱신
+      Promise.allSettled([refreshRtProfile(), fetchProfileBundle()]).then(() => {});
     }, AUTO_REFRESH_MS);
     return () => clearInterval(id);
   }, []);
@@ -427,9 +440,11 @@ export function ProfileScreen({
     user?.experience && user?.maxExperience ? (user.experience / user.maxExperience) * 100 : 0;
 
   // GOLD 표시값: Realtime 전역 상태(우선) → 공용 상태 → 로컬 balance 폴백
-  const displayGold: number | string = (
-    (rtProfile?.gold as any) ?? (sharedUser?.goldBalance as any) ?? (balance?.cyber_token_balance as any) ?? 0
-  );
+  const displayGold: number | string =
+    (rtProfile?.gold as any) ??
+    (sharedUser?.goldBalance as any) ??
+    (balance?.cyber_token_balance as any) ??
+    0;
 
   // 실시간 통계 파생값: 전역 stats 우선, 없으면 기존 로컬 stats 사용
   const pickNumber = (obj: Record<string, any> | undefined, keys: string[]): number => {
@@ -444,10 +459,20 @@ export function ProfileScreen({
     try {
       const entries = Object.values(rtAllStats || {}) as Array<{ data?: Record<string, any> }>;
       if (!entries?.length) return {};
-      const totalGames = entries.reduce((acc, e) => acc + pickNumber(e?.data, ['total_games_played','total_games','games','plays','spins']), 0);
-      const totalWins = entries.reduce((acc, e) => acc + pickNumber(e?.data, ['total_wins','wins']), 0);
+      const totalGames = entries.reduce(
+        (acc, e) =>
+          acc +
+          pickNumber(e?.data, ['total_games_played', 'total_games', 'games', 'plays', 'spins']),
+        0
+      );
+      const totalWins = entries.reduce(
+        (acc, e) => acc + pickNumber(e?.data, ['total_wins', 'wins']),
+        0
+      );
       return { totalGames, totalWins };
-    } catch { return {}; }
+    } catch {
+      return {};
+    }
   };
   const rtTotals = computeRtTotals();
   const displayTotalGames = (rtTotals.totalGames ?? 0) || (stats?.total_games_played ?? 0) || 0;
@@ -480,7 +505,9 @@ export function ProfileScreen({
 
           <div className="glass-effect rounded-xl p-3 border border-primary/20">
             <div className="text-right">
-              <div className="text-sm text-muted-foreground">{(gProfile as any)?.nickname ?? user?.nickname ?? '사용자'}</div>
+              <div className="text-sm text-muted-foreground">
+                {(gProfile as any)?.nickname ?? user?.nickname ?? '사용자'}
+              </div>
               <div className="text-lg font-bold text-primary">프로필</div>
             </div>
           </div>
@@ -489,7 +516,7 @@ export function ProfileScreen({
 
       {/* 메인 콘텐츠 - 2개 카드형 구조 */}
       <div className="relative z-10 p-4 lg:p-6 pb-20">
-        <div className="max-w-4xl mx-auto space-y-6">
+        <div className="max-w-5xl mx-auto space-y-6">
           {/* 🎯 첫 번째 카드: 단순화된 프로필 정보 */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -514,8 +541,19 @@ export function ProfileScreen({
                         placeholder="새 닉네임"
                       />
                       <div className="flex gap-2 justify-center">
-                        <Button onClick={handleSaveNickname} className="min-w-24">저장</Button>
-                        <Button variant="outline" onClick={() => { setIsEditingNickname(false); setNicknameDraft((gProfile as any)?.nickname || ''); }} className="min-w-24">취소</Button>
+                        <Button onClick={handleSaveNickname} className="min-w-24">
+                          저장
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setIsEditingNickname(false);
+                            setNicknameDraft((gProfile as any)?.nickname || '');
+                          }}
+                          className="min-w-24"
+                        >
+                          취소
+                        </Button>
                       </div>
                     </div>
                   ) : (
@@ -524,7 +562,12 @@ export function ProfileScreen({
                         {(gProfile as any)?.nickname ?? user?.nickname ?? '사용자'}
                       </h2>
                       <div className="flex justify-center">
-                        <Button variant="outline" size="sm" onClick={() => setIsEditingNickname(true)} className="glass-effect hover:bg-primary/10">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsEditingNickname(true)}
+                          className="glass-effect hover:bg-primary/10"
+                        >
                           닉네임 수정
                         </Button>
                       </div>
@@ -607,9 +650,7 @@ export function ProfileScreen({
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-lg font-bold text-primary">
-                        {displayTotalGames}회
-                      </div>
+                      <div className="text-lg font-bold text-primary">{displayTotalGames}회</div>
                       <div className="text-xs text-gold">
                         최고: {user?.gameStats?.slot?.biggestWin?.toLocaleString() || 0}G
                       </div>
@@ -680,9 +721,7 @@ export function ProfileScreen({
 
                   <div className="grid grid-cols-1 gap-3">
                     <div className="text-center p-4 rounded-lg bg-primary/5 border border-primary/10">
-                      <div className="text-2xl font-bold text-primary">
-                        {displayTotalGames}
-                      </div>
+                      <div className="text-2xl font-bold text-primary">{displayTotalGames}</div>
                       <div className="text-sm text-muted-foreground">총 게임 수</div>
                     </div>
 
@@ -736,7 +775,7 @@ export function ProfileScreen({
                           <div className="text-xs text-muted-foreground">100,000G 모으기</div>
                         </div>
                         <Badge className="bg-muted/20 text-muted-foreground border-muted/30 text-xs">
-                          {Math.min(100, Math.floor((Number(displayGold || 0)) / 1000))}%
+                          {Math.min(100, Math.floor(Number(displayGold || 0) / 1000))}%
                         </Badge>
                       </div>
                     </div>
@@ -744,6 +783,22 @@ export function ProfileScreen({
                 </div>
               </div>
             </Card>
+          </motion.div>
+
+          {/* 통계 + 최근 활동: 시각 정렬 가벼운 배치 */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div>
+                <ProfileStats />
+              </div>
+              <div>
+                <ActionHistory />
+              </div>
+            </div>
           </motion.div>
         </div>
       </div>

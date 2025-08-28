@@ -76,6 +76,8 @@
   "hooks/**/*",
     "pages/**/*",
     "src/**/*",
+  "__tests__/**/*",
+  "tests/**/*",
     "types/**/*.d.ts",
     ".next/types/**/*.ts",
     "types/react-namespace-compat.d.ts",
