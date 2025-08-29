@@ -48,7 +48,7 @@ function WithStore({ children }: { children: React.ReactNode }) {
 
 describe('ActionHistory - UI 스모크', () => {
   it('최근 활동 리스트와 더 보기 버튼', async () => {
-    render(
+    render(오디3ㄷㄷㅈㄷ3ㅌㅌㅌㅇㅊㅊㅌ 
       <WithStore>
         <ActionHistory />
       </WithStore>
