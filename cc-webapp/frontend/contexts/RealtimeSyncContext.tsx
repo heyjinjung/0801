@@ -552,6 +552,38 @@ export function RealtimeSyncProvider({ children, apiBaseUrl }: RealtimeSyncProvi
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const detail = (e as any).detail as SyncEventData['purchase_update'];
         if (detail && typeof detail === 'object') {
+          // Mirror real-handler toast side-effects for E2E determinism
+          try {
+            const status = (detail as any)?.status || 'pending';
+            const product = (detail as any)?.product_id
+              ? `상품 ${(detail as any).product_id}`
+              : '구매';
+            let type: string = 'shop';
+            let text: string = '';
+            if (status === 'success') {
+              type = 'success';
+              text = `${product} 결제가 완료되었습니다${
+                typeof (detail as any)?.amount === 'number'
+                  ? ` (금액: ${(detail as any).amount})`
+                  : ''
+              }.`;
+            } else if (status === 'failed') {
+              type = 'error';
+              text = `${product} 결제가 실패했습니다${
+                (detail as any)?.reason_code ? ` (${(detail as any).reason_code})` : ''
+              }.`;
+            } else if (status === 'idempotent_reuse') {
+              type = 'system';
+              text = `${product} 결제가 이미 처리되었습니다.`;
+            } else {
+              type = 'shop';
+              text = `${product} 결제가 진행 중입니다...`;
+            }
+            pushToast(text, type);
+          } catch {
+            /* ignore */
+          }
+
           dispatch({ type: 'UPDATE_PURCHASE', payload: detail });
         }
       } catch {

@@ -15,7 +15,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <RealtimeHydrateProvider>
           <RealtimeContextProvider>
             <ToastProvider>
-              <FeedbackProvider>{children}</FeedbackProvider>
+              <FeedbackProvider>
+                {children}
+                {/* Mark E2E listeners ready and flush queued events once all providers have mounted */}
+                <script
+                  dangerouslySetInnerHTML={{
+                    __html: `try { window.__e2eListenersReady = true; if (typeof window.__flushE2EEvents === 'function') window.__flushE2EEvents(); } catch (e) { /* ignore */ }`,
+                  }}
+                />
+              </FeedbackProvider>
             </ToastProvider>
           </RealtimeContextProvider>
         </RealtimeHydrateProvider>

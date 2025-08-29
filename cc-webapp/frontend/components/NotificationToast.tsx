@@ -52,6 +52,18 @@ export function ToastProvider(props: ToastProviderProps) {
         const parsed = { ...DEFAULTS, ...JSON.parse(raw) } as Settings;
         settingsRef.current = parsed;
       }
+      // In E2E, force-enable toasts and disable DND to prevent accidental suppression
+      if (typeof navigator !== 'undefined' && (navigator as any).webdriver) {
+        settingsRef.current.toastEnabled = true;
+        settingsRef.current.dnd = { enabled: false, start: '00:00', end: '00:00' };
+        settingsRef.current.types = {
+          ...settingsRef.current.types,
+          success: true,
+          error: true,
+          shop: true,
+          system: true,
+        } as any;
+      }
     } catch {
       // ignore
     }

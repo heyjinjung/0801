@@ -6,6 +6,12 @@ services:
     environment:
       BASE_URL: http://frontend:3000
       API_BASE_URL: http://backend:8000
+      # Admin bearer for admin specs (optional; specs will skip if missing)
+      E2E_ADMIN_BEARER: ${E2E_ADMIN_BEARER:-}
+      ADMIN_BEARER: ${ADMIN_BEARER:-}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+      # Invite code for signup flows (optional)
+      E2E_INVITE_CODE: ${E2E_INVITE_CODE:-"5858"}
       CI: "1"
       HEADLESS: "1"
     volumes:
@@ -15,11 +21,8 @@ services:
     depends_on:
       - frontend
       - backend
-    networks:
-      ccnet:
-        aliases:
-          - playwright
-    entrypoint: ["bash", "-lc", "npm install --no-audit --no-fund && npx playwright test --config=playwright.config.ts"]
+    networks: [ccnet]
+    entrypoint: ["bash", "-lc", "npm ci --no-audit --no-fund || npm install --no-audit --no-fund; npx playwright install --with-deps; npx playwright test --config=playwright.config.ts"]
 
 networks:
   ccnet:
