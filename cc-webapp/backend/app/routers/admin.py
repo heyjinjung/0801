@@ -530,8 +530,11 @@ async def admin_list_items(admin_user = Depends(require_admin_access)):
         ))
     return items
 
+from fastapi import BackgroundTasks
+
+
 @router.post("/shop/items", response_model=AdminCatalogItemOut)
-async def admin_create_item(body: AdminCatalogItemIn, admin_user = Depends(require_admin_access)):
+async def admin_create_item(body: AdminCatalogItemIn, admin_user = Depends(require_admin_access), background_tasks: BackgroundTasks = None):
     if CatalogService.get_product(body.id):
         raise HTTPException(status_code=400, detail="Product id already exists")
     prod = Product(
@@ -545,10 +548,16 @@ async def admin_create_item(body: AdminCatalogItemIn, admin_user = Depends(requi
         min_rank=body.min_rank,
     )
     CatalogService._catalog[body.id] = prod  # noqa: SLF001
+    try:
+        from .realtime import broadcast_catalog_update
+        if background_tasks is not None:
+            background_tasks.add_task(broadcast_catalog_update, "create", int(body.id))
+    except Exception:
+        pass
     return AdminCatalogItemOut(**prod.__dict__)
 
 @router.put("/shop/items/{item_id}", response_model=AdminCatalogItemOut)
-async def admin_update_item(item_id: int, body: AdminCatalogItemIn, admin_user = Depends(require_admin_access)):
+async def admin_update_item(item_id: int, body: AdminCatalogItemIn, admin_user = Depends(require_admin_access), background_tasks: BackgroundTasks = None):
     if item_id != body.id:
         raise HTTPException(status_code=400, detail="Path id and body id must match")
     prod = CatalogService.get_product(item_id)
@@ -565,13 +574,25 @@ async def admin_update_item(item_id: int, body: AdminCatalogItemIn, admin_user =
         min_rank=body.min_rank,
     )
     CatalogService._catalog[item_id] = new_prod  # noqa: SLF001
+    try:
+        from .realtime import broadcast_catalog_update
+        if background_tasks is not None:
+            background_tasks.add_task(broadcast_catalog_update, "update", int(item_id))
+    except Exception:
+        pass
     return AdminCatalogItemOut(**new_prod.__dict__)
 
 @router.delete("/shop/items/{item_id}")
-async def admin_delete_item(item_id: int, admin_user = Depends(require_admin_access)):
+async def admin_delete_item(item_id: int, admin_user = Depends(require_admin_access), background_tasks: BackgroundTasks = None):
     if not CatalogService.get_product(item_id):
         raise HTTPException(status_code=404, detail="Product not found")
     del CatalogService._catalog[item_id]  # noqa: SLF001
+    try:
+        from .realtime import broadcast_catalog_update
+        if background_tasks is not None:
+            background_tasks.add_task(broadcast_catalog_update, "delete", int(item_id))
+    except Exception:
+        pass
     return {"success": True}
 
 class AdminDiscountPatch(BaseModel):
@@ -579,7 +600,7 @@ class AdminDiscountPatch(BaseModel):
     discount_ends_at: Optional[datetime] = None
 
 @router.patch("/shop/items/{item_id}/discount", response_model=AdminCatalogItemOut)
-async def admin_set_discount(item_id: int, body: AdminDiscountPatch, admin_user = Depends(require_admin_access)):
+async def admin_set_discount(item_id: int, body: AdminDiscountPatch, admin_user = Depends(require_admin_access), background_tasks: BackgroundTasks = None):
     prod = CatalogService.get_product(item_id)
     if not prod:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -594,13 +615,19 @@ async def admin_set_discount(item_id: int, body: AdminDiscountPatch, admin_user 
         min_rank=prod.min_rank,
     )
     CatalogService._catalog[item_id] = updated  # noqa: SLF001
+    try:
+        from .realtime import broadcast_catalog_update
+        if background_tasks is not None:
+            background_tasks.add_task(broadcast_catalog_update, "discount", int(item_id))
+    except Exception:
+        pass
     return AdminCatalogItemOut(**updated.__dict__)
 
 class AdminRankPatch(BaseModel):
     min_rank: Optional[str] = None
 
 @router.patch("/shop/items/{item_id}/rank", response_model=AdminCatalogItemOut)
-async def admin_set_rank(item_id: int, body: AdminRankPatch, admin_user = Depends(require_admin_access)):
+async def admin_set_rank(item_id: int, body: AdminRankPatch, admin_user = Depends(require_admin_access), background_tasks: BackgroundTasks = None):
     prod = CatalogService.get_product(item_id)
     if not prod:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -615,6 +642,12 @@ async def admin_set_rank(item_id: int, body: AdminRankPatch, admin_user = Depend
         min_rank=body.min_rank,
     )
     CatalogService._catalog[item_id] = updated  # noqa: SLF001
+    try:
+        from .realtime import broadcast_catalog_update
+        if background_tasks is not None:
+            background_tasks.add_task(broadcast_catalog_update, "rank", int(item_id))
+    except Exception:
+        pass
     return AdminCatalogItemOut(**updated.__dict__)
 
 # API endpoints
@@ -719,6 +752,9 @@ class AdminAddTokensRequest(BaseModel):
     user_id: Optional[int] = None  # path param과 중복 허용(호환 목적)
 
 
+from fastapi import BackgroundTasks
+
+
 @router.post("/users/{user_id}/tokens/add")
 async def add_user_tokens(
     user_id: int,
@@ -726,7 +762,8 @@ async def add_user_tokens(
     amount: Optional[int] = None,  # 쿼리 파라미터 방식도 병행 지원
     admin_user = Depends(require_admin_access),
     db = Depends(get_db),
-    admin_service: AdminService = Depends(get_admin_service)
+    admin_service: AdminService = Depends(get_admin_service),
+    background_tasks: BackgroundTasks = None,
 ):
     """Add tokens to a user account (admin only).
     - 호환성: JSON 본문({amount, reason}) 또는 쿼리 파라미터 amount 모두 지원
@@ -747,6 +784,14 @@ async def add_user_tokens(
         # 본문에 user_id가 들어와도 path 우선, 값 불일치 시 path 기준
         new_balance = admin_service.add_user_tokens(target_user_id, amt)
 
+        # 골드/토큰 변경 브로드캐스트 → 프론트 현재 세션이면 reconcileBalance()
+        try:
+            from .realtime import broadcast_profile_update
+            if background_tasks is not None:
+                background_tasks.add_task(broadcast_profile_update, target_user_id, {"gold_balance": int(new_balance)})
+        except Exception:
+            pass
+
         return {
             "success": True,
             "message": f"Added {amt} tokens to user {target_user_id}",
@@ -762,6 +807,58 @@ async def add_user_tokens(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to add tokens: {str(e)}"
+        )
+
+
+class AdminDeductTokensRequest(BaseModel):
+    amount: int
+    reason: Optional[str] = None
+
+
+@router.post("/users/{user_id}/tokens/deduct")
+async def deduct_user_tokens(
+    user_id: int,
+    body: AdminDeductTokensRequest,
+    admin_user = Depends(require_admin_access),
+    db = Depends(get_db),
+    background_tasks: BackgroundTasks = None,
+):
+    """Deduct tokens (gold) from a user account (admin only)."""
+    try:
+        amt = int(body.amount)
+        if amt <= 0:
+            raise ValueError("Amount must be positive")
+
+        # TokenService는 cyber_token_balance(gold) alias를 통해 처리
+        from ..services.token_service import TokenService
+        svc = TokenService(db=db)
+        new_balance = svc.deduct_tokens(user_id, amt)
+        if new_balance is None:
+            raise HTTPException(status_code=400, detail="Insufficient balance")
+
+        # 브로드캐스트
+        try:
+            from .realtime import broadcast_profile_update
+            if background_tasks is not None:
+                background_tasks.add_task(broadcast_profile_update, int(user_id), {"gold_balance": int(new_balance)})
+        except Exception:
+            pass
+
+        return {
+            "success": True,
+            "message": f"Deducted {amt} tokens from user {user_id}",
+            "new_balance": int(new_balance),
+            "admin_id": getattr(admin_user, "id", None),
+            "reason": getattr(body, "reason", None),
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to deduct tokens: {str(e)}"
         )
 
 # --- Limited Packages Admin (MVP in-memory) ---

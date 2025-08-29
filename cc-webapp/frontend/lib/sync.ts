@@ -11,7 +11,8 @@ import {
   useGlobalStore,
   setProfile,
   setHydrated,
-} from "../store/globalStore";
+  mergeProfile,
+} from "@/store/globalStore";
 
 export async function hydrateProfile(dispatch: ReturnType<typeof useGlobalStore>["dispatch"]) {
   try {
@@ -49,6 +50,16 @@ export async function hydrateProfile(dispatch: ReturnType<typeof useGlobalStore>
     console.warn("[sync] hydrateProfile 실패", e);
   } finally {
     setHydrated(dispatch, true);
+    // E2E/Test visibility: mark hydration complete even on partial failures
+    try {
+      if (typeof window !== 'undefined') {
+        (window as any).__appHydrated = true;
+        document?.body?.setAttribute?.('data-hydrated', 'true');
+        window.dispatchEvent(new CustomEvent('app:hydrated'));
+      }
+    } catch {
+      // noop
+    }
   }
 }
 
@@ -89,6 +100,11 @@ export function RealtimeSyncProvider(props: { children?: React.ReactNode }) {
       ws.onopen = () => {
         // eslint-disable-next-line no-console
         console.log("[sync] WS connected", url);
+        // E2E: signal realtime connection readiness
+        try {
+          (window as any).__realtimeReady = true;
+          window.dispatchEvent(new CustomEvent('app:realtime-ready'));
+        } catch { /* ignore */ }
       };
       ws.onmessage = (ev) => {
         try {
@@ -129,6 +145,40 @@ export function RealtimeSyncProvider(props: { children?: React.ReactNode }) {
       try { ws?.close(); } catch { /* noop */ }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Test-only: allow E2E to inject a profile update that directly merges into the global store
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = (e: Event) => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const detail = (e as any).detail as { gold?: number; gold_balance?: number; gems?: number; gems_balance?: number } | undefined;
+        if (!detail || typeof detail !== 'object') return;
+        const gold = (detail as any).gold ?? (detail as any).gold_balance;
+        const gems = (detail as any).gems ?? (detail as any).gems_balance;
+        const patch: Record<string, unknown> = {};
+        if (typeof gold === 'number' && Number.isFinite(gold)) patch.goldBalance = Number(gold);
+        if (typeof gems === 'number' && Number.isFinite(gems)) (patch as any).gemsBalance = Number(gems);
+        if (Object.keys(patch).length > 0) {
+          mergeProfile(dispatch, patch as any);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    window.addEventListener('realtime:test-profile-update', handler as EventListener);
+    return () => window.removeEventListener('realtime:test-profile-update', handler as EventListener);
+  }, [dispatch]);
+
+  // Test-only: allow E2E to trigger catalog invalidation
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = () => {
+      try { window.dispatchEvent(new CustomEvent('catalog:invalidate')); } catch { /* ignore */ }
+    };
+    window.addEventListener('realtime:test-catalog-update', handler as EventListener);
+    return () => window.removeEventListener('realtime:test-catalog-update', handler as EventListener);
   }, []);
 
   return React.createElement(React.Fragment, null, props.children ?? null);

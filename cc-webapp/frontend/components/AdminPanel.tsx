@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, type ChangeEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft,
@@ -26,12 +26,15 @@ import {
   RefreshCw,
   Home,
   Terminal,
+  Package,
 } from 'lucide-react';
 import { User } from '../types';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Card, CardContent } from './ui/card';
 import { Alert, AlertDescription } from './ui/alert';
+import { api as unifiedApi, apiCall } from '@/lib/unifiedApi';
+import { useGlobalStore, reconcileBalance as reconcileAuthoritative } from '@/store/globalStore';
 
 interface AdminPanelProps {
   user: User;
@@ -51,6 +54,37 @@ interface AdminPanelProps {
   statsError?: string | null;
 }
 
+// 간단 읽기 전용 인벤토리 리스트 (글로벌 스토어 우선)
+function InventoryListFallback({ user }: { user: User }) {
+  // 지연 import (순환 방지)
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { useGlobalStore } = require('@/store/globalStore');
+  const { state } = useGlobalStore();
+  const list = (
+    state?.inventory && state.inventory.length ? state.inventory : (user as any)?.inventory || []
+  ) as Array<any>;
+
+  if (!list.length) {
+    return <div className="text-muted-foreground text-sm">표시할 아이템이 없습니다.</div>;
+  }
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+      {list.slice(0, 30).map((it: any) => (
+        <div key={it.id} className="glass-effect rounded-lg p-3 flex items-center justify-between">
+          <div className="min-w-0">
+            <div className="text-sm text-foreground truncate">{it.name}</div>
+            <div className="text-xs text-muted-foreground truncate">{it.description}</div>
+          </div>
+          <Badge variant="secondary" className="ml-3 text-xs">
+            x{it.quantity || 1}
+          </Badge>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // 💼 빠른 작업 메뉴 인터페이스
 interface QuickAction {
   id: string;
@@ -63,11 +97,61 @@ interface QuickAction {
   onClick: () => void;
 }
 
-export function AdminPanel({ user, onBack, onUpdateUser, onAddNotification, coreStats, loadingStats, statsError }: AdminPanelProps) {
+export function AdminPanel({
+  user,
+  onBack,
+  onUpdateUser,
+  onAddNotification,
+  coreStats,
+  loadingStats,
+  statsError,
+}: AdminPanelProps) {
   const [activeView, setActiveView] = useState(
     'menu' as 'menu' | 'dashboard' | 'users' | 'shop' | 'security' | 'system'
   );
   const [searchQuery, setSearchQuery] = useState('');
+  const [adjustUserId, setAdjustUserId] = useState('');
+  const [amount, setAmount] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [inventoryUser, setInventoryUser] = useState(null as User | null);
+  const [inventoryItems, setInventoryItems] = useState([] as any[]);
+  const { state, dispatch } = useGlobalStore();
+  const [shopItems, setShopItems] = useState([] as Array<{
+    id: number;
+    sku: string;
+    name: string;
+    price_cents: number;
+    gold: number;
+    discount_percent?: number;
+    discount_ends_at?: string | null;
+    min_rank?: string | null;
+  }>);
+  const [shopBusy, setShopBusy] = useState(false);
+  const [shopError, setShopError] = useState(null as string | null);
+
+  const loadShopItems = async () => {
+    try {
+      setShopError(null);
+      const data = await unifiedApi.get('admin/shop/items');
+      setShopItems(Array.isArray(data) ? data : []);
+    } catch (e: any) {
+      setShopError(e?.message || 'failed to load shop items');
+    }
+  };
+
+  // 지급/차감 성공 시 현재 세션이면 권위 잔액으로 재조정
+  const reconcileIfCurrent = (targetUserId: string | number) => {
+    try {
+      const pid = state?.profile?.id;
+      if (pid == null) return;
+      if (String(pid) !== String(targetUserId)) return;
+      const gold = Number(state?.profile?.goldBalance ?? 0);
+      const gems = Number((state?.profile as any)?.gemsBalance ?? 0);
+      reconcileAuthoritative(dispatch, { gold, gems }).catch(() => {});
+    } catch {
+      /* noop */
+    }
+  };
 
   // 📊 핵심 통계: 전달된 props 기반 가공
   const statsView = {
@@ -83,6 +167,15 @@ export function AdminPanel({ user, onBack, onUpdateUser, onAddNotification, core
   // 💼 빠른 작업 메뉴 정의 (globals.css 클래스 사용)
   const quickActions: QuickAction[] = [
     // 👥 사용자 관리
+    {
+      id: 'inventory',
+      title: '인벤토리 보기',
+      description: '유저 보유 아이템 조회',
+      icon: Package,
+      bgClass: 'bg-gradient-to-r from-primary to-success',
+      category: 'user',
+  onClick: () => setActiveView('inventory'),
+    },
     {
       id: 'add-user',
       title: '사용자 추가',
@@ -248,14 +341,11 @@ export function AdminPanel({ user, onBack, onUpdateUser, onAddNotification, core
   };
 
   // 카테고리별 그룹화
-  const actionsByCategory = quickActions.reduce(
-    (acc, action) => {
-      if (!acc[action.category]) acc[action.category] = [];
-      acc[action.category].push(action);
-      return acc;
-    },
-    {} as Record<string, QuickAction[]>
-  );
+  const actionsByCategory = quickActions.reduce((acc, action) => {
+    if (!acc[action.category]) acc[action.category] = [];
+    acc[action.category].push(action);
+    return acc;
+  }, {} as Record<string, QuickAction[]>);
 
   const categoryNames = {
     user: '👥 사용자 관리',
@@ -284,9 +374,7 @@ export function AdminPanel({ user, onBack, onUpdateUser, onAddNotification, core
         <div className="absolute top-2 left-1/2 -translate-x-1/2 w-full max-w-lg px-4 z-50">
           <Alert variant="destructive" className="glass-metal border-error/50">
             <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>
-              실시간 통계 로딩 실패: {statsError} (기본값 표시중)
-            </AlertDescription>
+            <AlertDescription>실시간 통계 로딩 실패: {statsError} (기본값 표시중)</AlertDescription>
           </Alert>
         </div>
       )}
@@ -312,15 +400,21 @@ export function AdminPanel({ user, onBack, onUpdateUser, onAddNotification, core
           {/* 🎯 상단 빠른 통계 */}
           <div className="hidden md:flex items-center gap-6">
             <div className="text-center">
-              <div className="text-lg text-primary">{loadingStats ? '…' : statsView.onlineUsers}</div>
+              <div className="text-lg text-primary">
+                {loadingStats ? '…' : statsView.onlineUsers}
+              </div>
               <div className="text-xs text-muted-foreground">온라인</div>
             </div>
             <div className="text-center">
-              <div className="text-lg text-gradient-gold">{loadingStats ? '…' : `${(statsView.todayRevenue / 1000).toFixed(0)}K`}</div>
+              <div className="text-lg text-gradient-gold">
+                {loadingStats ? '…' : `${(statsView.todayRevenue / 1000).toFixed(0)}K`}
+              </div>
               <div className="text-xs text-muted-foreground">오늘 수익</div>
             </div>
             <div className="text-center">
-              <div className="text-lg text-error">{loadingStats ? '…' : statsView.criticalAlerts}</div>
+              <div className="text-lg text-error">
+                {loadingStats ? '…' : statsView.criticalAlerts}
+              </div>
               <div className="text-xs text-muted-foreground">긴급 알림</div>
             </div>
 
@@ -340,7 +434,9 @@ export function AdminPanel({ user, onBack, onUpdateUser, onAddNotification, core
             <Button
               variant={activeView === 'menu' ? 'default' : 'outline'}
               onClick={() => setActiveView('menu')}
-              className={`btn-hover-lift ${activeView === 'menu' ? 'bg-gradient-game' : 'glass-metal'}`}
+              className={`btn-hover-lift ${
+                activeView === 'menu' ? 'bg-gradient-game' : 'glass-metal'
+              }`}
             >
               <Home className="w-4 h-4 mr-2" />
               기능 메뉴
@@ -348,7 +444,9 @@ export function AdminPanel({ user, onBack, onUpdateUser, onAddNotification, core
             <Button
               variant={activeView === 'dashboard' ? 'default' : 'outline'}
               onClick={() => setActiveView('dashboard')}
-              className={`btn-hover-lift ${activeView === 'dashboard' ? 'bg-gradient-game' : 'glass-metal'}`}
+              className={`btn-hover-lift ${
+                activeView === 'dashboard' ? 'bg-gradient-game' : 'glass-metal'
+              }`}
             >
               <BarChart3 className="w-4 h-4 mr-2" />
               대시보드
@@ -515,6 +613,42 @@ export function AdminPanel({ user, onBack, onUpdateUser, onAddNotification, core
             </motion.div>
           )}
 
+          {activeView === 'inventory' && (
+            <motion.div
+              key="inventory"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 12 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-4"
+            >
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg text-foreground flex items-center gap-2">
+                  인벤토리
+                  <Badge variant="outline" className="ml-2">
+                    읽기 전용
+                  </Badge>
+                </h2>
+                <Button
+                  variant="outline"
+                  className="glass-metal"
+                  onClick={() => setActiveView('menu')}
+                >
+                  돌아가기
+                </Button>
+              </div>
+              <Card className="glass-metal">
+                <CardContent className="p-4">
+                  <div className="text-sm text-muted-foreground mb-3">
+                    현재 세션 사용자 보유 아이템
+                  </div>
+                  {/* 전역 스토어 우선, 없으면 props.user */}
+                  <InventoryListFallback user={user} />
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
           {activeView === 'dashboard' && (
             <motion.div
               key="dashboard"
@@ -603,8 +737,177 @@ export function AdminPanel({ user, onBack, onUpdateUser, onAddNotification, core
             </motion.div>
           )}
 
-          {/* 다른 뷰들은 기본 메시지 표시 */}
-          {activeView !== 'menu' && activeView !== 'dashboard' && (
+          {/* 사용자 관리 */}
+          {activeView === 'users' && (
+            <motion.div
+              key="users"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-6"
+            >
+              <h2 className="text-xl text-gradient-primary flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                👥 사용자 관리
+              </h2>
+              <div className="glass-metal rounded-2xl p-6 space-y-3">
+                <div className="text-sm text-neutral-300">골드 지급/차감</div>
+                <div className="flex flex-col md:flex-row gap-2 items-start md:items-center">
+                  <input
+                    value={adjustUserId}
+                    onChange={(e: any) => setAdjustUserId(e.target.value)}
+                    placeholder="user_id"
+                    className="px-3 py-2 bg-black/40 border rounded w-full md:w-48"
+                  />
+                  <input
+                    type="number"
+                    value={amount}
+                    onChange={(e: any) => {
+                      const v = e.target.value;
+                      const n = Number.parseInt(v || '0', 10);
+                      setAmount(Number.isFinite(n) ? n : 0);
+                    }}
+                    placeholder="amount"
+                    className="px-3 py-2 bg-black/40 border rounded w-full md:w-40"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      disabled={busy || !adjustUserId || amount <= 0}
+                      onClick={async () => {
+                        if (!adjustUserId || amount <= 0) return;
+                        setBusy(true);
+                        try {
+                          await unifiedApi.post(`admin/users/${adjustUserId}/tokens/add`, {
+                            amount,
+                          });
+                          onAddNotification('✅ 지급 완료: profile_update가 전파됩니다.');
+                          // 동일 세션이면 즉시 정합화
+                          reconcileIfCurrent(adjustUserId);
+                        } catch (e: any) {
+                          onAddNotification(`❌ 지급 실패: ${e?.message || 'error'}`);
+                        } finally {
+                          setBusy(false);
+                        }
+                      }}
+                      className="bg-emerald-600 hover:bg-emerald-500 btn-hover-glow"
+                    >
+                      지급
+                    </Button>
+                    <Button
+                      disabled={busy || !adjustUserId || amount <= 0}
+                      onClick={async () => {
+                        if (!adjustUserId || amount <= 0) return;
+                        setBusy(true);
+                        try {
+                          await unifiedApi.post(`admin/users/${adjustUserId}/tokens/deduct`, {
+                            amount,
+                          });
+                          onAddNotification('✅ 차감 완료: profile_update가 전파됩니다.');
+                          // 동일 세션이면 즉시 정합화
+                          reconcileIfCurrent(adjustUserId);
+                        } catch (e: any) {
+                          onAddNotification(`❌ 차감 실패: ${e?.message || 'error'}`);
+                        } finally {
+                          setBusy(false);
+                        }
+                      }}
+                      className="bg-rose-600 hover:bg-rose-500 btn-hover-glow"
+                    >
+                      차감
+                    </Button>
+                  </div>
+                </div>
+                <p className="text-xs text-neutral-400">
+                  처리 성공 시 해당 유저 세션에 profile_update가 브로드캐스트되며, 현재 세션이면
+                  잔액 정합화를 수행합니다.
+                </p>
+              </div>
+
+              {/* 골드 지급 (서버 권위, 멱등키 지원) */}
+              <GoldGrantPanel
+                onAddNotification={onAddNotification}
+                reconcileIfCurrent={reconcileIfCurrent}
+              />
+
+              {/* 차단/해제 간단 패널 */}
+              <BanUnbanPanel onAddNotification={onAddNotification} />
+              <div className="text-center">
+                <Button
+                  onClick={() => setActiveView('menu')}
+                  className="bg-gradient-game btn-hover-lift"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" /> 기능 메뉴로 돌아가기
+                </Button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* 상점 관리 */}
+          {activeView === 'shop' && (
+            <motion.div
+              key="shop"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-6"
+            >
+              <h2 className="text-xl text-gradient-primary flex items-center gap-2">
+                <ShoppingCart className="w-5 h-5" /> 🛍️ 상점/패키지 관리
+              </h2>
+              <div className="glass-metal rounded-2xl p-6 space-y-3">
+                <div className="text-sm text-neutral-300">카탈로그 무효화 및 재조회</div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => {
+                      window.dispatchEvent(new CustomEvent('catalog:invalidate'));
+                      onAddNotification('🔄 카탈로그 재조회 트리거 전송');
+                    }}
+                    className="bg-indigo-600 hover:bg-indigo-500 btn-hover-glow"
+                  >
+                    재조회 트리거
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={loadShopItems}
+                    className="btn-hover-lift glass-metal"
+                  >
+                    목록 불러오기
+                  </Button>
+                </div>
+                <p className="text-xs text-neutral-400">
+                  관리자 변경 후 클라이언트는 이 트리거로 목록을 갱신합니다.
+                </p>
+                {shopError && (
+                  <div className="text-xs text-error">불러오기 오류: {shopError}</div>
+                )}
+              </div>
+
+              {/* 간단 CRUD/할인/랭크 패널 (OpenAPI: AdminCatalogItemIn/Out, AdminDiscountPatch, AdminRankPatch) */}
+              <ShopCrudPanel
+                items={shopItems}
+                busy={shopBusy}
+                onReload={async () => {
+                  await loadShopItems();
+                }}
+                setBusy={setShopBusy}
+                onAddNotification={onAddNotification}
+              />
+
+              <div className="text-center">
+                <Button
+                  onClick={() => setActiveView('menu')}
+                  className="bg-gradient-game btn-hover-lift"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" /> 기능 메뉴로 돌아가기
+                </Button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* 보안/시스템은 플레이스홀더 유지 */}
+          {(activeView === 'security' || activeView === 'system') && (
             <motion.div
               key={activeView}
               initial={{ opacity: 0, scale: 0.95 }}
@@ -616,8 +919,6 @@ export function AdminPanel({ user, onBack, onUpdateUser, onAddNotification, core
               <div className="glass-metal rounded-2xl p-8 max-w-md mx-auto">
                 <Terminal className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
                 <h2 className="text-xl text-foreground mb-2">
-                  {activeView === 'users' && '👥 사용자 관리'}
-                  {activeView === 'shop' && '🛍️ 상점 관리'}
                   {activeView === 'security' && '🛡️ 보안 관리'}
                   {activeView === 'system' && '⚙️ 시스템 관리'}
                 </h2>
@@ -626,14 +927,454 @@ export function AdminPanel({ user, onBack, onUpdateUser, onAddNotification, core
                   onClick={() => setActiveView('menu')}
                   className="bg-gradient-game btn-hover-lift"
                 >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  기능 메뉴로 돌아가기
+                  <ArrowLeft className="w-4 h-4 mr-2" /> 기능 메뉴로 돌아가기
                 </Button>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
+    </div>
+  );
+}
+
+// --- Subcomponents ---
+function ShopCrudPanel({
+  items,
+  busy,
+  setBusy,
+  onReload,
+  onAddNotification,
+}: {
+  items: Array<{
+    id: number; sku: string; name: string; price_cents: number; gold: number;
+    discount_percent?: number; discount_ends_at?: string | null; min_rank?: string | null;
+  }>;
+  busy: boolean;
+  setBusy: (b: boolean) => void;
+  onReload: () => Promise<void> | void;
+  onAddNotification: (msg: string) => void;
+}) {
+  const [createForm, setCreateForm] = useState({
+    id: '', sku: '', name: '', price_cents: '', gold: '',
+  });
+  const [editId, setEditId] = useState('');
+  const [editForm, setEditForm] = useState({ sku: '', name: '', price_cents: '', gold: '' });
+  const [discountForm, setDiscountForm] = useState({ item_id: '', discount_percent: '', discount_ends_at: '' });
+  const [rankForm, setRankForm] = useState({ item_id: '', min_rank: '' });
+  const [lastResult, setLastResult] = useState(null as null | { action:string; item_id?: number; changed?: string[]; at:number; });
+
+  const dispatchInvalidate = () => {
+    try {
+      window.dispatchEvent(new CustomEvent('catalog:invalidate'));
+    } catch {}
+  };
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="glass-metal rounded-2xl p-6 space-y-3">
+        <div className="text-sm text-neutral-300">신규 아이템 생성 (POST admin/shop/items)</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <input className="px-3 py-2 bg-black/40 border rounded" placeholder="id (integer)" value={createForm.id}
+            onChange={(e:any)=>setCreateForm({...createForm, id: e.target.value})} />
+          <input className="px-3 py-2 bg-black/40 border rounded" placeholder="sku" value={createForm.sku}
+            onChange={(e:any)=>setCreateForm({...createForm, sku: e.target.value})} />
+          <input className="px-3 py-2 bg-black/40 border rounded" placeholder="name" value={createForm.name}
+            onChange={(e:any)=>setCreateForm({...createForm, name: e.target.value})} />
+          <input className="px-3 py-2 bg-black/40 border rounded" placeholder="price_cents" type="number" value={createForm.price_cents}
+            onChange={(e:any)=>setCreateForm({...createForm, price_cents: e.target.value})} />
+          <input className="px-3 py-2 bg-black/40 border rounded" placeholder="gold" type="number" value={createForm.gold}
+            onChange={(e:any)=>setCreateForm({...createForm, gold: e.target.value})} />
+        </div>
+        <div className="flex gap-2">
+          <Button
+            disabled={busy}
+            onClick={async ()=>{
+              const id = parseInt(createForm.id || '');
+              const price_cents = parseInt(createForm.price_cents || '');
+              const gold = parseInt(createForm.gold || '');
+              if (!Number.isFinite(id) || !createForm.sku || !createForm.name || !Number.isFinite(price_cents) || !Number.isFinite(gold)) {
+                onAddNotification('⚠️ 필수 필드 누락 또는 형식 오류');
+                return;
+              }
+              setBusy(true);
+              try {
+                await unifiedApi.post('admin/shop/items', { id, sku: createForm.sku, name: createForm.name, price_cents, gold });
+                onAddNotification('✅ 아이템 생성 완료');
+                dispatchInvalidate();
+                await onReload();
+                setCreateForm({ id: '', sku: '', name: '', price_cents: '', gold: '' });
+              } catch(e:any){
+                onAddNotification(`❌ 생성 실패: ${e?.message||'error'}`);
+              } finally { setBusy(false); }
+            }}
+            className="bg-gradient-game btn-hover-lift"
+          >
+            생성
+          </Button>
+        </div>
+      </div>
+
+      <div className="glass-metal rounded-2xl p-6 space-y-3">
+        <div className="text-sm text-neutral-300">아이템 수정 (PUT admin/shop/items/{'{id}'})</div>
+        <div className="flex gap-2 items-center mb-2">
+          <select className="px-3 py-2 bg-black/40 border rounded flex-1" value={editId} onChange={(e:any)=>{
+            const v = e.target.value; setEditId(v);
+            const found = items.find(it=>String(it.id)===String(v));
+            setEditForm({ sku: found?.sku||'', name: found?.name||'', price_cents: String(found?.price_cents||''), gold: String(found?.gold||'') });
+          }}>
+            <option value="">아이템 선택…</option>
+            {items.map(it=> (
+              <option key={it.id} value={String(it.id)}>{it.id} · {it.sku} · {it.name}</option>
+            ))}
+          </select>
+          {editId && (
+            <Button
+              variant="outline"
+              onClick={async ()=>{
+                if (!editId) return;
+                if (!confirm('정말 삭제하시겠습니까?')) return;
+                setBusy(true);
+                try {
+                  await unifiedApi.del(`admin/shop/items/${editId}`);
+                  onAddNotification('🗑️ 삭제 완료');
+                  dispatchInvalidate();
+                  await onReload();
+                  setEditId('');
+                } catch(e:any){
+                  onAddNotification(`❌ 삭제 실패: ${e?.message||'error'}`);
+                } finally { setBusy(false); }
+              }}
+              className="border-error text-error"
+            >삭제</Button>
+          )}
+        </div>
+        {editId && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <input className="px-3 py-2 bg-black/40 border rounded" placeholder="sku" value={editForm.sku}
+              onChange={(e:any)=>setEditForm({...editForm, sku: e.target.value})} />
+            <input className="px-3 py-2 bg-black/40 border rounded" placeholder="name" value={editForm.name}
+              onChange={(e:any)=>setEditForm({...editForm, name: e.target.value})} />
+            <input className="px-3 py-2 bg-black/40 border rounded" placeholder="price_cents" type="number" value={editForm.price_cents}
+              onChange={(e:any)=>setEditForm({...editForm, price_cents: e.target.value})} />
+            <input className="px-3 py-2 bg-black/40 border rounded" placeholder="gold" type="number" value={editForm.gold}
+              onChange={(e:any)=>setEditForm({...editForm, gold: e.target.value})} />
+          </div>
+        )}
+        <div className="flex gap-2">
+          <Button
+            disabled={busy || !editId}
+            onClick={async ()=>{
+              if (!editId) return;
+              const price_cents = parseInt(editForm.price_cents || '');
+              const gold = parseInt(editForm.gold || '');
+              if (!editForm.sku || !editForm.name || !Number.isFinite(price_cents) || !Number.isFinite(gold)) {
+                onAddNotification('⚠️ 필수 필드 누락 또는 형식 오류');
+                return;
+              }
+              setBusy(true);
+              try {
+                await unifiedApi.put(`admin/shop/items/${editId}`, { sku: editForm.sku, name: editForm.name, price_cents, gold, id: parseInt(editId,10) });
+                onAddNotification('✅ 수정 완료');
+                dispatchInvalidate();
+                await onReload();
+              } catch(e:any){
+                onAddNotification(`❌ 수정 실패: ${e?.message||'error'}`);
+              } finally { setBusy(false); }
+            }}
+            className="bg-emerald-600 hover:bg-emerald-500 btn-hover-glow"
+          >수정 저장</Button>
+        </div>
+      </div>
+
+      <div className="glass-metal rounded-2xl p-6 space-y-3">
+        <div className="text-sm text-neutral-300">할인 설정 (PATCH admin/shop/items/{'{id}'}/discount)</div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+          <input className="px-3 py-2 bg-black/40 border rounded" placeholder="item_id" value={discountForm.item_id}
+            onChange={(e:any)=>setDiscountForm({...discountForm, item_id: e.target.value})} />
+          <input className="px-3 py-2 bg-black/40 border rounded" placeholder="discount_percent (0-100)" type="number" value={discountForm.discount_percent}
+            onChange={(e:any)=>setDiscountForm({...discountForm, discount_percent: e.target.value})} />
+          <input className="px-3 py-2 bg-black/40 border rounded" type="datetime-local" placeholder="discount_ends_at (optional)" value={discountForm.discount_ends_at}
+            onChange={(e:any)=>setDiscountForm({...discountForm, discount_ends_at: e.target.value})} />
+          <div className="flex gap-1">
+            <Button variant="outline" size="sm" onClick={()=>{
+              const base = new Date(); base.setDate(base.getDate()+1);
+              const v = new Date(base.getTime()-base.getTimezoneOffset()*60000).toISOString().slice(0,16);
+              setDiscountForm((d: { item_id:string; discount_percent:string; discount_ends_at:string; })=>({...d, discount_ends_at: v}));
+            }}>+1d</Button>
+            <Button variant="outline" size="sm" onClick={()=>{
+              const base = new Date(); base.setDate(base.getDate()+3);
+              const v = new Date(base.getTime()-base.getTimezoneOffset()*60000).toISOString().slice(0,16);
+              setDiscountForm((d: { item_id:string; discount_percent:string; discount_ends_at:string; })=>({...d, discount_ends_at: v}));
+            }}>+3d</Button>
+            <Button variant="outline" size="sm" onClick={()=>{
+              const base = new Date(); base.setDate(base.getDate()+7);
+              const v = new Date(base.getTime()-base.getTimezoneOffset()*60000).toISOString().slice(0,16);
+              setDiscountForm((d: { item_id:string; discount_percent:string; discount_ends_at:string; })=>({...d, discount_ends_at: v}));
+            }}>+7d</Button>
+            <Button variant="outline" size="sm" onClick={()=>{
+              setDiscountForm((d: { item_id:string; discount_percent:string; discount_ends_at:string; })=>({...d, discount_ends_at: ''}));
+            }}>기간해제</Button>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            disabled={busy}
+            onClick={async ()=>{
+              const id = parseInt(discountForm.item_id || '');
+              const dp = parseInt(discountForm.discount_percent || '');
+              if (!Number.isFinite(id) || !Number.isFinite(dp)) { onAddNotification('⚠️ 형식 오류'); return; }
+              // 미래 시각 유효성(선택 시)
+              if (discountForm.discount_ends_at) {
+                const local = new Date(discountForm.discount_ends_at);
+                if (Number.isNaN(local.getTime()) || local.getTime() <= Date.now()) {
+                  onAddNotification('⚠️ discount_ends_at은 미래 시각이어야 합니다.');
+                  return;
+                }
+              }
+              setBusy(true);
+              try {
+                const body:any = { discount_percent: dp };
+                if (discountForm.discount_ends_at) {
+                  const iso = new Date(discountForm.discount_ends_at);
+                  body.discount_ends_at = iso.toISOString();
+                }
+                const res = await apiCall(`admin/shop/items/${id}/discount`, { method: 'PATCH', body });
+                onAddNotification('✅ 할인 설정 완료');
+                dispatchInvalidate();
+                await onReload();
+                setLastResult({ action:'discount', item_id:id, changed:['discount_percent','discount_ends_at'], at: Date.now() });
+              } catch(e:any){
+                onAddNotification(`❌ 할인 설정 실패: ${e?.message||'error'}`);
+              } finally { setBusy(false); }
+            }}
+            className="bg-primary btn-hover-lift"
+          >적용</Button>
+        </div>
+      </div>
+
+      <div className="glass-metal rounded-2xl p-6 space-y-3">
+        <div className="text-sm text-neutral-300">노출 등급 설정 (PATCH admin/shop/items/{'{id}'}/rank)</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <input className="px-3 py-2 bg-black/40 border rounded" placeholder="item_id" value={rankForm.item_id}
+            onChange={(e:any)=>setRankForm({...rankForm, item_id: e.target.value})} />
+          <input className="px-3 py-2 bg-black/40 border rounded" placeholder="min_rank (예: VIP1 | 비우면 해제)" value={rankForm.min_rank}
+            onChange={(e:any)=>setRankForm({...rankForm, min_rank: e.target.value})} />
+        </div>
+        <div className="flex gap-2">
+          <Button
+            disabled={busy}
+            onClick={async ()=>{
+              const id = parseInt(rankForm.item_id || '');
+              if (!Number.isFinite(id)) { onAddNotification('⚠️ 형식 오류'); return; }
+              setBusy(true);
+              try {
+                const body:any = {};
+                if (rankForm.min_rank && rankForm.min_rank.trim().length>0) body.min_rank = rankForm.min_rank.trim();
+                else body.min_rank = null;
+                const res = await apiCall(`admin/shop/items/${id}/rank`, { method: 'PATCH', body });
+                onAddNotification('✅ 등급 설정 완료');
+                dispatchInvalidate();
+                await onReload();
+                setLastResult({ action:'rank', item_id:id, changed:['min_rank'], at: Date.now() });
+              } catch(e:any){
+                onAddNotification(`❌ 등급 설정 실패: ${e?.message||'error'}`);
+              } finally { setBusy(false); }
+            }}
+            className="bg-info btn-hover-lift"
+          >적용</Button>
+        </div>
+      </div>
+
+      {/* 간단 목록 */}
+      <div className="glass-metal rounded-2xl p-6 space-y-3 lg:col-span-2">
+        <div className="text-sm text-neutral-300">현재 아이템 목록 (GET admin/shop/items)</div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-muted-foreground">
+              <tr>
+                <th className="text-left p-2">id</th>
+                <th className="text-left p-2">sku</th>
+                <th className="text-left p-2">name</th>
+                <th className="text-left p-2">price_cents</th>
+                <th className="text-left p-2">gold</th>
+                <th className="text-left p-2">discount%</th>
+                <th className="text-left p-2">min_rank</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map(it => (
+                <tr key={it.id} className={`border-t border-border-secondary ${lastResult?.item_id===it.id ? 'animate-pulse' : ''}`}>
+                  <td className="p-2">{it.id}</td>
+                  <td className="p-2">{it.sku}</td>
+                  <td className="p-2">{it.name}</td>
+                  <td className="p-2">{it.price_cents}</td>
+                  <td className="p-2">{it.gold}</td>
+                  <td className="p-2">{it.discount_percent ?? 0}</td>
+                  <td className="p-2">{it.min_rank ?? '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {lastResult && (
+          <div className="mt-3 text-xs text-muted-foreground">
+            마지막 작업: <span className="text-foreground">{lastResult.action}</span> · 대상 아이템: {lastResult.item_id} · 변경: {lastResult.changed?.join(', ')||'-'} · {new Date(lastResult.at).toLocaleString()}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function GoldGrantPanel({
+  onAddNotification,
+  reconcileIfCurrent,
+}: {
+  onAddNotification: (msg: string) => void;
+  reconcileIfCurrent: (userId: string | number) => void;
+}) {
+  const [userId, setUserId] = useState('');
+  const [amount, setAmount] = useState(0);
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const genIdemKey = () => {
+    try {
+      // 브라우저 지원 시 native UUID 사용
+      // @ts-ignore
+      if (typeof crypto !== 'undefined' && crypto?.randomUUID) return crypto.randomUUID();
+    } catch {}
+    return 'ui_' + Date.now() + '_' + Math.random().toString(16).slice(2);
+  };
+
+  return (
+    <div className="glass-metal rounded-2xl p-6 space-y-3">
+      <div className="text-sm text-neutral-300">골드 지급 (서버 권위·멱등키)</div>
+      <div className="flex flex-col lg:flex-row gap-2 items-start lg:items-center">
+        <input
+          value={userId}
+          onChange={(e: any) => setUserId(e.target.value)}
+          placeholder="user_id"
+          className="px-3 py-2 bg-black/40 border rounded w-full lg:w-48"
+        />
+        <input
+          type="number"
+          value={amount}
+          onChange={(e: any) => setAmount(parseInt(e.target.value || '0', 10) || 0)}
+          placeholder="amount"
+          className="px-3 py-2 bg-black/40 border rounded w-full lg:w-40"
+        />
+        <input
+          value={reason}
+          onChange={(e: any) => setReason(e.target.value)}
+          placeholder="reason (optional)"
+          className="px-3 py-2 bg-black/40 border rounded w-full lg:flex-1"
+        />
+        <Button
+          disabled={busy || !userId || amount <= 0}
+          onClick={async () => {
+            if (!userId || amount <= 0) return;
+            setBusy(true);
+            try {
+              const body = { amount, reason: reason || undefined, idempotency_key: genIdemKey() };
+              await unifiedApi.post(`admin/users/${userId}/gold/grant`, body);
+              onAddNotification('✅ 골드 지급 완료: profile_update가 전파됩니다.');
+              reconcileIfCurrent(userId);
+            } catch (e: any) {
+              onAddNotification(`❌ 골드 지급 실패: ${e?.message || 'error'}`);
+            } finally {
+              setBusy(false);
+            }
+          }}
+          className="bg-amber-600 hover:bg-amber-500 btn-hover-glow"
+        >
+          골드 지급
+        </Button>
+      </div>
+      <p className="text-xs text-neutral-400">멱등키로 중복 요청 시 동일 영수증이 재사용됩니다.</p>
+    </div>
+  );
+}
+
+function BanUnbanPanel({
+  onAddNotification,
+}: {
+  onAddNotification: (msg: string) => void;
+}) {
+  const [userId, setUserId] = useState('');
+  const [reason, setReason] = useState('policy_violation');
+  const [duration, setDuration] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <div className="glass-metal rounded-2xl p-6 space-y-3">
+      <div className="text-sm text-neutral-300">사용자 차단/해제</div>
+      <div className="flex flex-col lg:flex-row gap-2 items-start lg:items-center">
+        <input
+          value={userId}
+          onChange={(e: any) => setUserId(e.target.value)}
+          placeholder="user_id"
+          className="px-3 py-2 bg-black/40 border rounded w-full lg:w-48"
+        />
+        <input
+          value={reason}
+          onChange={(e: any) => setReason(e.target.value)}
+          placeholder="reason"
+          className="px-3 py-2 bg-black/40 border rounded w-full lg:flex-1"
+        />
+        <input
+          type="number"
+          value={duration as any}
+          onChange={(e: any) => {
+            const n = parseInt(e.target.value || '0', 10);
+            setDuration(Number.isFinite(n) && n > 0 ? n : '');
+          }}
+          placeholder="duration_hours (optional)"
+          className="px-3 py-2 bg-black/40 border rounded w-full lg:w-56"
+        />
+        <div className="flex gap-2">
+          <Button
+            disabled={busy || !userId}
+            onClick={async () => {
+              if (!userId) return;
+              setBusy(true);
+              try {
+                const body: any = { reason: reason || 'policy_violation' };
+                if (duration !== '' && Number.isFinite(duration as any)) body.duration_hours = Number(duration);
+                await unifiedApi.post(`admin/users/${userId}/ban`, body);
+                onAddNotification('⛔ 차단 완료');
+              } catch (e: any) {
+                onAddNotification(`❌ 차단 실패: ${e?.message || 'error'}`);
+              } finally {
+                setBusy(false);
+              }
+            }}
+            className="bg-rose-700 hover:bg-rose-600 btn-hover-glow"
+          >
+            차단
+          </Button>
+          <Button
+            disabled={busy || !userId}
+            onClick={async () => {
+              if (!userId) return;
+              setBusy(true);
+              try {
+                await unifiedApi.post(`admin/users/${userId}/unban`, {});
+                onAddNotification('✅ 차단 해제 완료');
+              } catch (e: any) {
+                onAddNotification(`❌ 해제 실패: ${e?.message || 'error'}`);
+              } finally {
+                setBusy(false);
+              }
+            }}
+            className="bg-emerald-700 hover:bg-emerald-600 btn-hover-glow"
+          >
+            해제
+          </Button>
+        </div>
+      </div>
+      <p className="text-xs text-neutral-400">duration_hours를 생략하면 영구 차단으로 처리될 수 있습니다.</p>
     </div>
   );
 }

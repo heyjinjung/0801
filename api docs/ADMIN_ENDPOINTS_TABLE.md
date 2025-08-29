@@ -1,0 +1,49 @@
+# Admin API Endpoints (from current_openapi.json)
+
+Compact reference aligned to backend OpenAPI. Paths are relative to /api.
+
+- GET /admin/stats — Core dashboard stats
+- GET /admin/shop/items — List catalog items (AdminCatalogItemOut[])
+- POST /admin/shop/items — Create item (AdminCatalogItemIn -> AdminCatalogItemOut)
+- PUT /admin/shop/items/{item_id} — Update item (AdminCatalogItemIn -> AdminCatalogItemOut)
+- DELETE /admin/shop/items/{item_id} — Delete item
+- PATCH /admin/shop/items/{item_id}/discount — Set discount (AdminDiscountPatch -> AdminCatalogItemOut)
+- PATCH /admin/shop/items/{item_id}/rank — Set min rank (AdminRankPatch -> AdminCatalogItemOut)
+- POST /admin/users/{user_id}/tokens/add — Adjust tokens (AdminAddTokensRequest)
+- POST /admin/users/{user_id}/gold/grant — Grant gold (GoldGrantRequest -> GoldGrantResponse)
+- POST /admin/users/{user_id}/ban — Ban user (AdminBanRequest)
+- POST /admin/users/{user_id}/unban — Unban user
+- GET /admin/transactions — List transactions
+- POST /admin/transactions/{receipt}/force-settle — Force-settle receipt
+- POST /admin/campaigns — Create campaign
+- POST /admin/campaigns/{campaign_id}/cancel — Cancel campaign
+- POST /admin/limited-packages/upsert — Upsert limited package
+- POST /admin/limited-packages/{package_id}/disable — Disable limited package
+- POST /admin/promo-codes/upsert — Upsert promo code
+- POST /admin/limited/toggle — Toggle global limited on/off
+- POST /admin/limited/period — Set limited availability window (LimitedPeriodRequest)
+- POST /admin/limited/stock — Set limited stock (LimitedStockRequest)
+- POST /admin/limited/per-user-limit — Set per-user limit (LimitedPerUserLimitRequest)
+- POST /admin/limited/promo/set — Set limited promo banner (LimitedPromoRequest)
+- POST /admin/limited/promo/clear — Clear limited promo
+- POST /admin/email/trigger — Trigger templated email (AdminEmailTriggerRequest)
+- GET /admin/audit/logs — Admin audit logs
+- GET /admin/audit/logs.csv — Admin audit logs CSV
+- GET /admin/users — User search/list
+- GET /admin/users/{user_id} — User details
+- POST /admin/users/elevate — Elevate admin
+- POST /admin/users/{user_id}/rank — Set user rank
+- POST /admin/users/{user_id}/status — Set user status
+- GET /admin/users/{user_id}/logs — User logs
+- POST /admin/gacha/config — Update gacha config
+- POST /admin/events — Create content event (if present in OpenAPI)
+- PUT /admin/events/{event_id} — Update content event
+- POST /admin/events/{event_id}/deactivate — Deactivate event
+- GET /admin/events/{event_id}/participations — List participations
+- POST /admin/events/{event_id}/force-claim/{user_id} — Force claim
+- POST /admin/events/seed/model-index — Seed model index
+- GET /admin/content/rewards/catalog — List reward templates
+- POST /admin/content/rewards/catalog — Create reward template
+- PUT /admin/content/rewards/catalog/{reward_id} — Update reward template
+- POST /admin/content/rewards/catalog/{reward_id}/activate — Activate reward template
+- POST /admin/content/rewards/catalog/{reward_id}/deactivate — Deactivate reward template

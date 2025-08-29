@@ -1,4 +1,7 @@
 'use client';
+// NOTE: 이 파일은 데모/프로토타입 UI입니다.
+// 실제 상점 관리는 AdminPanel의 Shop CRUD 패널로 통합되었으며,
+// 후속 작업으로 본 컴포넌트를 OpenAPI 연동형으로 전환/통합하거나 제거할 예정입니다.
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';

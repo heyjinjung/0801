@@ -232,6 +232,8 @@ export function TokenBalanceQuick() {
 
   return (
     <div className="inline-flex items-center gap-2">
+  {/* E2E helper: expose current gold text in DOM even when dropdown is closed */}
+  <span data-testid="gold-balance-sr" className="sr-only">{gold.toLocaleString()}G</span>
       <button
         type="button"
         className="flex items-center gap-1 px-2 py-1 rounded bg-gradient-gold text-black text-xs font-bold shadow hover:opacity-90"
@@ -239,11 +241,15 @@ export function TokenBalanceQuick() {
         aria-label="잔액 상세 보기"
       >
         <Coins className="w-4 h-4" />
-        <span>{gold.toLocaleString()}G</span>
+  <span data-testid="gold-balance">{gold.toLocaleString()}G</span>
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" role="dialog" aria-modal="true">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+          role="dialog"
+          aria-modal="true"
+        >
           <div className="w-[92vw] max-w-md rounded-lg bg-zinc-900 border border-zinc-700 shadow-xl">
             <div className="flex items-center justify-between p-3 border-b border-zinc-700">
               <div className="flex items-center gap-2 font-semibold text-sm text-white">
@@ -265,14 +271,23 @@ export function TokenBalanceQuick() {
               {changes.length > 0 && (
                 <ul className="space-y-2">
                   {changes.map((c: ChangeItem) => (
-                    <li key={c.id} className="flex items-center justify-between rounded bg-zinc-800 border border-zinc-700 px-3 py-2">
+                    <li
+                      key={c.id}
+                      className="flex items-center justify-between rounded bg-zinc-800 border border-zinc-700 px-3 py-2"
+                    >
                       <div className="text-xs text-zinc-200">
                         <div className="font-medium">
                           {c.type === 'reward' ? '보상' : '구매'} • {c.label}
                         </div>
-                        <div className="text-[11px] opacity-70">{new Date(c.at).toLocaleString()}</div>
+                        <div className="text-[11px] opacity-70">
+                          {new Date(c.at).toLocaleString()}
+                        </div>
                       </div>
-                      <div className={`text-sm font-bold ${c.amount >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      <div
+                        className={`text-sm font-bold ${
+                          c.amount >= 0 ? 'text-emerald-400' : 'text-red-400'
+                        }`}
+                      >
                         {c.amount >= 0 ? `+${c.amount}` : `${c.amount}`}G
                       </div>
                     </li>

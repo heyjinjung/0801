@@ -48,6 +48,15 @@ function resolveOrigin(): string {
     return 'http://backend:8000';
   }
 
+  // Client-side: prefer internal URL when not on localhost (e.g., Docker/Playwright network)
+  try {
+    const host = window?.location?.hostname;
+    const isLocal = host === 'localhost' || host === '127.0.0.1';
+    if (!isLocal && envInternal && /^https?:\/\//.test(envInternal)) {
+      return envInternal.replace(/\/$/, '');
+    }
+  } catch { /* noop */ }
+
   if (envOrigin && /^https?:\/\//.test(envOrigin)) return envOrigin.replace(/\/$/, '');
   const fallback = (window.location.port === '3000' || window.location.port === '3001') ? 'http://localhost:8000' : `${window.location.origin}`;
   if (!envOrigin) console.warn('[unifiedApi] NEXT_PUBLIC_API_ORIGIN 미설정 → fallback:', fallback);
@@ -111,7 +120,10 @@ export async function apiCall<T=any>(path: string, opts: UnifiedRequestOptions<T
   } = opts;
 
   if (path.startsWith('/')) path = path.slice(1); // normalize
-  const url = `${ORIGIN}/api/${path}`;
+  // Use same-origin relative path in the browser (Next.js rewrites to backend),
+  // and absolute origin on the server (SSR, API routes, etc.)
+  const isBrowser = typeof window !== 'undefined';
+  const url = isBrowser ? `/api/${path}` : `${ORIGIN}/api/${path}`;
 
   let attempt = 0;
   let didRefresh = false;

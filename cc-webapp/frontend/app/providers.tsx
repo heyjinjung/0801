@@ -2,10 +2,24 @@
 
 import React from 'react';
 import { FeedbackProvider } from '../contexts/FeedbackContext';
+import { GlobalStoreProvider } from '@/store/globalStore';
+import { EnsureHydrated, RealtimeSyncProvider as RealtimeHydrateProvider } from '@/lib/sync';
+import { RealtimeSyncProvider as RealtimeContextProvider } from '@/contexts/RealtimeSyncContext';
+import { ToastProvider } from '@/components/NotificationToast';
 
+// App-wide providers so every route (including /admin/*) has access to the global store and realtime sync
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-  // 주의: GlobalStoreProvider / EnsureHydrated / RealtimeSyncProvider / ToastProvider 는 App.tsx 내부에서 구성됩니다.
-  <FeedbackProvider>{children}</FeedbackProvider>
+    <GlobalStoreProvider>
+      <EnsureHydrated>
+        <RealtimeHydrateProvider>
+          <RealtimeContextProvider>
+            <ToastProvider>
+              <FeedbackProvider>{children}</FeedbackProvider>
+            </ToastProvider>
+          </RealtimeContextProvider>
+        </RealtimeHydrateProvider>
+      </EnsureHydrated>
+    </GlobalStoreProvider>
   );
 }

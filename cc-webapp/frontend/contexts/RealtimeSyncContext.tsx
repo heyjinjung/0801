@@ -523,6 +523,15 @@ export function RealtimeSyncProvider({ children, apiBaseUrl }: RealtimeSyncProvi
           dispatch({ type: 'ADD_USER_ACTION', payload: message.data });
           break;
 
+        case 'catalog_update':
+          try {
+            // 글로벌 카탈로그 변경 → 클라이언트 캐시 무효화 트리거
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('catalog:invalidate'));
+            }
+          } catch {}
+          break;
+
         case 'pong':
           // 하트비트 응답 - 특별한 처리 불요
           break;
@@ -569,8 +578,41 @@ export function RealtimeSyncProvider({ children, apiBaseUrl }: RealtimeSyncProvi
       }
     };
     window.addEventListener('realtime:test-user-action', handler as EventListener);
+    return () => window.removeEventListener('realtime:test-user-action', handler as EventListener);
+  }, []);
+
+  // Test-only: catalog update injection
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = (e: Event) => {
+      try {
+        window.dispatchEvent(new CustomEvent('catalog:invalidate'));
+      } catch {
+        // ignore
+      }
+    };
+    window.addEventListener('realtime:test-catalog-update', handler as EventListener);
     return () =>
-      window.removeEventListener('realtime:test-user-action', handler as EventListener);
+      window.removeEventListener('realtime:test-catalog-update', handler as EventListener);
+  }, []);
+
+  // Test-only: profile update injection (gold balance)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = (e: Event) => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const detail = (e as any).detail as SyncEventData['profile_update'];
+        if (detail && typeof detail === 'object') {
+          dispatch({ type: 'UPDATE_PROFILE', payload: detail });
+        }
+      } catch {
+        // ignore
+      }
+    };
+    window.addEventListener('realtime:test-profile-update', handler as EventListener);
+    return () =>
+      window.removeEventListener('realtime:test-profile-update', handler as EventListener);
   }, []);
 
   // WebSocket 연결

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useLayoutEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft,
@@ -170,6 +170,23 @@ export function ShopScreen({
   const withReconcile = useWithReconcile();
   const gold = useUserGold();
   const { dispatch } = useGlobalStore();
+  // E2E helpers: refetch counter
+  const [refetchCount, setRefetchCount] = useState(0);
+
+  // Mark mounted as soon as possible for E2E readiness
+  useLayoutEffect(() => {
+    try {
+      (window as any).__shopMounted = true;
+      document?.body?.setAttribute?.('data-shop-mounted', 'true');
+      window.dispatchEvent(new CustomEvent('app:shop-mounted'));
+    } catch { /* noop */ }
+    return () => {
+      try {
+        (window as any).__shopMounted = false;
+        document?.body?.removeAttribute?.('data-shop-mounted');
+      } catch { /* noop */ }
+    };
+  }, []);
 
   // 마운트 시 1회 권위 잔액으로 정합화
   useEffect(() => {
@@ -200,6 +217,59 @@ export function ShopScreen({
     load();
     return () => {
       cancelled = true;
+    };
+  }, []);
+
+  // 관리자 트리거에 따라 카탈로그 재조회
+  useEffect(() => {
+    let cancelled = false;
+    const handler = () => {
+      (async () => {
+        try {
+          const res1: any = await api.get('shop/catalog');
+          if (!cancelled && Array.isArray(res1)) {
+            setCatalog(res1);
+            setRefetchCount((c: number) => {
+              const next = c + 1;
+              try { (window as any).__shopRefetchCount = next; } catch {}
+              return next;
+            });
+            return;
+          }
+        } catch {}
+        try {
+          const res2: any = await api.get('shop/items');
+          if (!cancelled && Array.isArray(res2)) {
+            setCatalog(res2);
+            setRefetchCount((c: number) => {
+              const next = c + 1;
+              try { (window as any).__shopRefetchCount = next; } catch {}
+              return next;
+            });
+            return;
+          }
+        } catch {}
+      })();
+    };
+    window.addEventListener('catalog:invalidate', handler as EventListener);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('catalog:invalidate', handler as EventListener);
+    };
+  }, []);
+
+  // Signal that ShopScreen is mounted for tests
+  useEffect(() => {
+    try {
+      (window as any).__shopMounted = true;
+      document?.body?.setAttribute?.('data-shop-mounted', 'true');
+      window.dispatchEvent(new CustomEvent('app:shop-mounted'));
+    } catch { /* ignore */ }
+    return () => {
+      try {
+        (window as any).__shopMounted = false;
+        document?.body?.removeAttribute?.('data-shop-mounted');
+      } catch { /* ignore */ }
     };
   }, []);
 

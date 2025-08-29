@@ -243,6 +243,21 @@ async def broadcast_stats_update(user_id: int, stats: Dict[str, Any]) -> None:
     await hub.broadcast(event)
 
 
+async def broadcast_catalog_update(reason: str, item_id: int | None = None) -> None:
+    """상점 카탈로그 변경 브로드캐스트 (글로벌 이벤트)
+
+    reason 예: create|update|delete|discount|rank
+    """
+    event: Dict[str, Any] = {
+        "type": "catalog_update",
+        "reason": reason,
+        "timestamp": asyncio.get_event_loop().time(),
+    }
+    if item_id is not None:
+        event["item_id"] = item_id
+    await hub.broadcast(event)
+
+
 async def broadcast_purchase_update(
     user_id: int,
     *,
