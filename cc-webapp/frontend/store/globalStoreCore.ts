@@ -35,6 +35,7 @@ type GlobalState = {
     hydrated: boolean;
     lastHydratedAt?: number;
     lastError?: string | null;
+    offline?: boolean;
     gameStats?: Record<string, any>;
     inventory?: InventoryItem[];
     balances?: BalanceSnapshot;
@@ -46,6 +47,7 @@ type GlobalState = {
 type Actions =
     | { type: "SET_PROFILE"; profile: GlobalUserProfile | null }
     | { type: "SET_HYDRATED"; value: boolean }
+    | { type: "SET_OFFLINE"; value: boolean }
     | { type: "SET_ERROR"; error: string | null }
     | { type: "PATCH_BALANCES"; delta: { gold?: number; gems?: number } }
     | { type: "MERGE_PROFILE"; patch: Partial<GlobalUserProfile> & Record<string, unknown> }
@@ -61,6 +63,7 @@ const initialState: GlobalState = {
     hydrated: false,
     lastHydratedAt: undefined,
     lastError: null,
+    offline: false,
     gameStats: {},
     inventory: [],
     balances: { gold: 0, gems: 0 },
@@ -75,6 +78,8 @@ function reducer(state: GlobalState, action: Actions): GlobalState {
             return { ...state, profile: action.profile, hydrated: true, lastHydratedAt: Date.now() };
         case "SET_HYDRATED":
             return { ...state, hydrated: action.value, lastHydratedAt: action.value ? Date.now() : state.lastHydratedAt };
+        case "SET_OFFLINE":
+            return { ...state, offline: action.value };
         case "SET_ERROR":
             return { ...state, lastError: action.error };
         case "PATCH_BALANCES": {
@@ -199,6 +204,10 @@ export function setProfile(dispatch: DispatchFn, profile: GlobalUserProfile | nu
 
 export function setHydrated(dispatch: DispatchFn, value: boolean) {
     dispatch({ type: "SET_HYDRATED", value });
+}
+
+export function setOffline(dispatch: DispatchFn, value: boolean) {
+    dispatch({ type: "SET_OFFLINE", value });
 }
 
 export function setError(dispatch: DispatchFn, error: string | null) {

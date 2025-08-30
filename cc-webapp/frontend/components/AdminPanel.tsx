@@ -147,7 +147,8 @@ export function AdminPanel({
       if (String(pid) !== String(targetUserId)) return;
       const gold = Number(state?.profile?.goldBalance ?? 0);
       const gems = Number((state?.profile as any)?.gemsBalance ?? 0);
-      reconcileAuthoritative(dispatch, { gold, gems }).catch(() => {});
+  // 서버가 profile_update 브로드캐스트를 보낼 것이나, 현재 세션이면 즉시 서버 권위 잔액으로 재조정
+  reconcileAuthoritative(dispatch, { gold, gems }).catch(() => {});
     } catch {
       /* noop */
     }

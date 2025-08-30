@@ -31,6 +31,7 @@ export interface UnifiedRequestOptions<T=any> {
   parseJson?: boolean;       // false면 text 그대로 반환
   transform?: (data:any)=>T; // 결과 후처리
   idem?: boolean;            // 쓰기 계열 요청시 멱등키 자동 주입 (기본 true)
+  allowOfflineWrites?: boolean; // 오프라인 시에도 쓰기 허용 여부(기본 false)
 }
 
 const DEFAULT_RETRY_STATUS = new Set([408, 409, 429, 500, 502, 503, 504]);
@@ -117,6 +118,7 @@ export async function apiCall<T=any>(path: string, opts: UnifiedRequestOptions<T
     parseJson = true,
   transform,
   idem = true,
+  allowOfflineWrites = false,
   } = opts;
 
   if (path.startsWith('/')) path = path.slice(1); // normalize
@@ -124,6 +126,17 @@ export async function apiCall<T=any>(path: string, opts: UnifiedRequestOptions<T
   // and absolute origin on the server (SSR, API routes, etc.)
   const isBrowser = typeof window !== 'undefined';
   const url = isBrowser ? `/api/${path}` : `${ORIGIN}/api/${path}`;
+
+  // 오프라인: 경제 액션(비-GET) 큐잉 금지 – 즉시 실패시켜 UI가 읽기 전용 전환/경고 처리하도록 유도
+  try {
+    if (isBrowser && typeof navigator !== 'undefined') {
+      const isOffline = (navigator as any).onLine === false;
+      const mUpper = String(method || 'GET').toUpperCase();
+      if (isOffline && mUpper !== 'GET' && !allowOfflineWrites) {
+        throw new Error('[unifiedApi] offline: write disabled');
+      }
+    }
+  } catch { /* noop */ }
 
   let attempt = 0;
   let didRefresh = false;

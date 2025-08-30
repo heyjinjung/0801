@@ -7,12 +7,7 @@
  */
 import React, { useEffect } from "react";
 import { api, API_ORIGIN } from "../lib/unifiedApi";
-import {
-  useGlobalStore,
-  setProfile,
-  setHydrated,
-  mergeProfile,
-} from "@/store/globalStore";
+import { useGlobalStore, setProfile, setHydrated, mergeProfile, setOffline } from "@/store/globalStore";
 
 export async function hydrateProfile(dispatch: ReturnType<typeof useGlobalStore>["dispatch"]) {
   try {
@@ -68,6 +63,22 @@ export function EnsureHydrated(props: { children?: React.ReactNode }) {
   useEffect(() => {
     // 최초 1회 하이드레이트 (토큰 없으면 실패하지만 harmless)
     hydrateProfile(dispatch);
+    // online/offline 이벤트 수신하여 전역 오프라인 상태 반영
+    function onOnline() { try { setOffline(dispatch, false); } catch {} }
+    function onOffline() { try { setOffline(dispatch, true); } catch {} }
+    try {
+      window.addEventListener('online', onOnline);
+      window.addEventListener('offline', onOffline);
+      // 초기 상태 동기화
+      // @ts-ignore
+      if (typeof navigator !== 'undefined' && navigator?.onLine === false) setOffline(dispatch, true);
+    } catch {}
+    return () => {
+      try {
+        window.removeEventListener('online', onOnline);
+        window.removeEventListener('offline', onOffline);
+      } catch {}
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return React.createElement(React.Fragment, null, props.children ?? null);
@@ -81,7 +92,8 @@ export function RealtimeSyncProvider(props: { children?: React.ReactNode }) {
     let ws: WebSocket | null = null;
     let closed = false;
     let lastHydrate = 0;
-    const minInterval = 600; // ms, 잦은 재하이드레이트 방지
+  const minInterval = 600; // ms, 잦은 재하이드레이트 방지
+  let retryAttempt = 0;
 
     function toWs(origin: string) {
       return origin.replace(/^http/i, "ws");
@@ -94,51 +106,60 @@ export function RealtimeSyncProvider(props: { children?: React.ReactNode }) {
       hydrateProfile(dispatch);
     }
 
-    try {
-      const url = toWs(API_ORIGIN) + "/ws/updates";
-      ws = new WebSocket(url);
-      ws.onopen = () => {
-        // eslint-disable-next-line no-console
-        console.log("[sync] WS connected", url);
-        // E2E: signal realtime connection readiness
-        try {
-          (window as any).__realtimeReady = true;
-          window.dispatchEvent(new CustomEvent('app:realtime-ready'));
-        } catch { /* ignore */ }
-      };
-      ws.onmessage = (ev) => {
-        try {
-          const msg = JSON.parse(ev.data);
-          const type = msg?.type;
-          switch (type) {
-            case "profile_update":
-            case "purchase_update":
-            case "reward_granted":
-            case "game_update":
-              safeHydrate();
-              break;
-            default:
-              break;
+    function connect() {
+      try {
+        const url = toWs(API_ORIGIN) + "/ws/updates";
+        ws = new WebSocket(url);
+        ws.onopen = () => {
+          retryAttempt = 0; // reset backoff
+          // eslint-disable-next-line no-console
+          console.log("[sync] WS connected", url);
+          // 연결 직후 초기 sync 요청(서버 지원 시 마지막 시퀀스부터 재플레이 요청하도록 확장 가능)
+          safeHydrate();
+          try {
+            (window as any).__realtimeReady = true;
+            window.dispatchEvent(new CustomEvent('app:realtime-ready'));
+          } catch { /* ignore */ }
+        };
+        ws.onmessage = (ev) => {
+          try {
+            const msg = JSON.parse(ev.data);
+            const type = msg?.type;
+            switch (type) {
+              case "profile_update":
+              case "purchase_update":
+              case "reward_granted":
+              case "game_update":
+                safeHydrate();
+                break;
+              default:
+                break;
+            }
+          } catch {
+            // ignore
           }
-        } catch {
-          // ignore
-        }
-      };
-      ws.onclose = () => {
-        if (closed) return;
+        };
+        ws.onclose = () => {
+          if (closed) return;
+          // eslint-disable-next-line no-console
+          console.log("[sync] WS closed – retry soon");
+          const delay = Math.min(8000, 500 * Math.pow(2, retryAttempt++));
+          setTimeout(() => {
+            if (!closed) {
+              connect();
+            }
+          }, delay);
+        };
+        ws.onerror = () => {
+          try { ws?.close(); } catch { /* noop */ }
+        };
+      } catch (e) {
         // eslint-disable-next-line no-console
-        console.log("[sync] WS closed – retry soon");
-        setTimeout(() => {
-          if (!closed) {
-            // 재연결
-            hydrateProfile(dispatch);
-          }
-        }, 1500);
-      };
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.warn("[sync] WS init failed", e);
+        console.warn("[sync] WS init failed", e);
+      }
     }
+
+    connect();
 
     return () => {
       closed = true;
