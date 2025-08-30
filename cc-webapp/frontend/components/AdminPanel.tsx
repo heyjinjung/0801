@@ -975,38 +975,74 @@ function ShopCrudPanel({
       <div className="glass-metal rounded-2xl p-6 space-y-3">
         <div className="text-sm text-neutral-300">신규 아이템 생성 (POST admin/shop/items)</div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-          <input className="px-3 py-2 bg-black/40 border rounded" placeholder="id (integer)" value={createForm.id}
-            onChange={(e:any)=>setCreateForm({...createForm, id: e.target.value})} />
-          <input className="px-3 py-2 bg-black/40 border rounded" placeholder="sku" value={createForm.sku}
-            onChange={(e:any)=>setCreateForm({...createForm, sku: e.target.value})} />
-          <input className="px-3 py-2 bg-black/40 border rounded" placeholder="name" value={createForm.name}
-            onChange={(e:any)=>setCreateForm({...createForm, name: e.target.value})} />
-          <input className="px-3 py-2 bg-black/40 border rounded" placeholder="price_cents" type="number" value={createForm.price_cents}
-            onChange={(e:any)=>setCreateForm({...createForm, price_cents: e.target.value})} />
-          <input className="px-3 py-2 bg-black/40 border rounded" placeholder="gold" type="number" value={createForm.gold}
-            onChange={(e:any)=>setCreateForm({...createForm, gold: e.target.value})} />
+          <input
+            className="px-3 py-2 bg-black/40 border rounded"
+            placeholder="id (integer)"
+            value={createForm.id}
+            onChange={(e: any) => setCreateForm({ ...createForm, id: e.target.value })}
+          />
+          <input
+            className="px-3 py-2 bg-black/40 border rounded"
+            placeholder="sku"
+            value={createForm.sku}
+            onChange={(e: any) => setCreateForm({ ...createForm, sku: e.target.value })}
+          />
+          <input
+            className="px-3 py-2 bg-black/40 border rounded"
+            placeholder="name"
+            value={createForm.name}
+            onChange={(e: any) => setCreateForm({ ...createForm, name: e.target.value })}
+          />
+          <input
+            className="px-3 py-2 bg-black/40 border rounded"
+            placeholder="price_cents"
+            type="number"
+            value={createForm.price_cents}
+            onChange={(e: any) => setCreateForm({ ...createForm, price_cents: e.target.value })}
+          />
+          <input
+            className="px-3 py-2 bg-black/40 border rounded"
+            placeholder="gold"
+            type="number"
+            value={createForm.gold}
+            onChange={(e: any) => setCreateForm({ ...createForm, gold: e.target.value })}
+          />
         </div>
         <div className="flex gap-2">
           <Button
             disabled={busy}
-            onClick={async ()=>{
+            onClick={async () => {
               const id = parseInt(createForm.id || '');
               const price_cents = parseInt(createForm.price_cents || '');
               const gold = parseInt(createForm.gold || '');
-              if (!Number.isFinite(id) || !createForm.sku || !createForm.name || !Number.isFinite(price_cents) || !Number.isFinite(gold)) {
+              if (
+                !Number.isFinite(id) ||
+                !createForm.sku ||
+                !createForm.name ||
+                !Number.isFinite(price_cents) ||
+                !Number.isFinite(gold)
+              ) {
                 onAddNotification('⚠️ 필수 필드 누락 또는 형식 오류');
                 return;
               }
               setBusy(true);
               try {
-                await unifiedApi.post('admin/shop/items', { id, sku: createForm.sku, name: createForm.name, price_cents, gold });
+                await unifiedApi.post('admin/shop/items', {
+                  id,
+                  sku: createForm.sku,
+                  name: createForm.name,
+                  price_cents,
+                  gold,
+                });
                 onAddNotification('✅ 아이템 생성 완료');
                 dispatchInvalidate();
                 await onReload();
                 setCreateForm({ id: '', sku: '', name: '', price_cents: '', gold: '' });
-              } catch(e:any){
-                onAddNotification(`❌ 생성 실패: ${e?.message||'error'}`);
-              } finally { setBusy(false); }
+              } catch (e: any) {
+                onAddNotification(`❌ 생성 실패: ${e?.message || 'error'}`);
+              } finally {
+                setBusy(false);
+              }
             }}
             className="bg-gradient-game btn-hover-lift"
           >
@@ -1018,20 +1054,33 @@ function ShopCrudPanel({
       <div className="glass-metal rounded-2xl p-6 space-y-3">
         <div className="text-sm text-neutral-300">아이템 수정 (PUT admin/shop/items/{'{id}'})</div>
         <div className="flex gap-2 items-center mb-2">
-          <select className="px-3 py-2 bg-black/40 border rounded flex-1" value={editId} onChange={(e:any)=>{
-            const v = e.target.value; setEditId(v);
-            const found = items.find(it=>String(it.id)===String(v));
-            setEditForm({ sku: found?.sku||'', name: found?.name||'', price_cents: String(found?.price_cents||''), gold: String(found?.gold||'') });
-          }}>
+          <select
+            className="px-3 py-2 bg-black/40 border rounded flex-1"
+            value={editId}
+            onChange={(e: any) => {
+              const v = e.target.value;
+              setEditId(v);
+              const found = items.find((it) => String(it.id) === String(v));
+              setEditForm({
+                sku: found?.sku || '',
+                name: found?.name || '',
+                price_cents: String(found?.price_cents || ''),
+                gold: String(found?.gold || ''),
+              });
+            }}
+            aria-label="수정할 아이템 선택"
+          >
             <option value="">아이템 선택…</option>
-            {items.map(it=> (
-              <option key={it.id} value={String(it.id)}>{it.id} · {it.sku} · {it.name}</option>
+            {items.map((it) => (
+              <option key={it.id} value={String(it.id)}>
+                {it.id} · {it.sku} · {it.name}
+              </option>
             ))}
           </select>
           {editId && (
             <Button
               variant="outline"
-              onClick={async ()=>{
+              onClick={async () => {
                 if (!editId) return;
                 if (!confirm('정말 삭제하시겠습니까?')) return;
                 setBusy(true);
@@ -1041,89 +1090,202 @@ function ShopCrudPanel({
                   dispatchInvalidate();
                   await onReload();
                   setEditId('');
-                } catch(e:any){
-                  onAddNotification(`❌ 삭제 실패: ${e?.message||'error'}`);
-                } finally { setBusy(false); }
+                } catch (e: any) {
+                  onAddNotification(`❌ 삭제 실패: ${e?.message || 'error'}`);
+                } finally {
+                  setBusy(false);
+                }
               }}
               className="border-error text-error"
-            >삭제</Button>
+            >
+              삭제
+            </Button>
           )}
         </div>
         {editId && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            <input className="px-3 py-2 bg-black/40 border rounded" placeholder="sku" value={editForm.sku}
-              onChange={(e:any)=>setEditForm({...editForm, sku: e.target.value})} />
-            <input className="px-3 py-2 bg-black/40 border rounded" placeholder="name" value={editForm.name}
-              onChange={(e:any)=>setEditForm({...editForm, name: e.target.value})} />
-            <input className="px-3 py-2 bg-black/40 border rounded" placeholder="price_cents" type="number" value={editForm.price_cents}
-              onChange={(e:any)=>setEditForm({...editForm, price_cents: e.target.value})} />
-            <input className="px-3 py-2 bg-black/40 border rounded" placeholder="gold" type="number" value={editForm.gold}
-              onChange={(e:any)=>setEditForm({...editForm, gold: e.target.value})} />
+            <input
+              className="px-3 py-2 bg-black/40 border rounded"
+              placeholder="sku"
+              value={editForm.sku}
+              onChange={(e: any) => setEditForm({ ...editForm, sku: e.target.value })}
+            />
+            <input
+              className="px-3 py-2 bg-black/40 border rounded"
+              placeholder="name"
+              value={editForm.name}
+              onChange={(e: any) => setEditForm({ ...editForm, name: e.target.value })}
+            />
+            <input
+              className="px-3 py-2 bg-black/40 border rounded"
+              placeholder="price_cents"
+              type="number"
+              value={editForm.price_cents}
+              onChange={(e: any) => setEditForm({ ...editForm, price_cents: e.target.value })}
+            />
+            <input
+              className="px-3 py-2 bg-black/40 border rounded"
+              placeholder="gold"
+              type="number"
+              value={editForm.gold}
+              onChange={(e: any) => setEditForm({ ...editForm, gold: e.target.value })}
+            />
           </div>
         )}
         <div className="flex gap-2">
           <Button
             disabled={busy || !editId}
-            onClick={async ()=>{
+            onClick={async () => {
               if (!editId) return;
               const price_cents = parseInt(editForm.price_cents || '');
               const gold = parseInt(editForm.gold || '');
-              if (!editForm.sku || !editForm.name || !Number.isFinite(price_cents) || !Number.isFinite(gold)) {
+              if (
+                !editForm.sku ||
+                !editForm.name ||
+                !Number.isFinite(price_cents) ||
+                !Number.isFinite(gold)
+              ) {
                 onAddNotification('⚠️ 필수 필드 누락 또는 형식 오류');
                 return;
               }
               setBusy(true);
               try {
-                await unifiedApi.put(`admin/shop/items/${editId}`, { sku: editForm.sku, name: editForm.name, price_cents, gold, id: parseInt(editId,10) });
+                await unifiedApi.put(`admin/shop/items/${editId}`, {
+                  sku: editForm.sku,
+                  name: editForm.name,
+                  price_cents,
+                  gold,
+                  id: parseInt(editId, 10),
+                });
                 onAddNotification('✅ 수정 완료');
                 dispatchInvalidate();
                 await onReload();
-              } catch(e:any){
-                onAddNotification(`❌ 수정 실패: ${e?.message||'error'}`);
-              } finally { setBusy(false); }
+              } catch (e: any) {
+                onAddNotification(`❌ 수정 실패: ${e?.message || 'error'}`);
+              } finally {
+                setBusy(false);
+              }
             }}
             className="bg-emerald-600 hover:bg-emerald-500 btn-hover-glow"
-          >수정 저장</Button>
+          >
+            수정 저장
+          </Button>
         </div>
       </div>
 
       <div className="glass-metal rounded-2xl p-6 space-y-3">
-        <div className="text-sm text-neutral-300">할인 설정 (PATCH admin/shop/items/{'{id}'}/discount)</div>
+        <div className="text-sm text-neutral-300">
+          할인 설정 (PATCH admin/shop/items/{'{id}'}/discount)
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-          <input className="px-3 py-2 bg-black/40 border rounded" placeholder="item_id" value={discountForm.item_id}
-            onChange={(e:any)=>setDiscountForm({...discountForm, item_id: e.target.value})} />
-          <input className="px-3 py-2 bg-black/40 border rounded" placeholder="discount_percent (0-100)" type="number" value={discountForm.discount_percent}
-            onChange={(e:any)=>setDiscountForm({...discountForm, discount_percent: e.target.value})} />
-          <input className="px-3 py-2 bg-black/40 border rounded" type="datetime-local" placeholder="discount_ends_at (optional)" value={discountForm.discount_ends_at}
-            onChange={(e:any)=>setDiscountForm({...discountForm, discount_ends_at: e.target.value})} />
+          <input
+            className="px-3 py-2 bg-black/40 border rounded"
+            placeholder="item_id"
+            value={discountForm.item_id}
+            onChange={(e: any) => setDiscountForm({ ...discountForm, item_id: e.target.value })}
+          />
+          <input
+            className="px-3 py-2 bg-black/40 border rounded"
+            placeholder="discount_percent (0-100)"
+            type="number"
+            value={discountForm.discount_percent}
+            onChange={(e: any) =>
+              setDiscountForm({ ...discountForm, discount_percent: e.target.value })
+            }
+          />
+          <input
+            className="px-3 py-2 bg-black/40 border rounded"
+            type="datetime-local"
+            placeholder="discount_ends_at (optional)"
+            value={discountForm.discount_ends_at}
+            onChange={(e: any) =>
+              setDiscountForm({ ...discountForm, discount_ends_at: e.target.value })
+            }
+          />
           <div className="flex gap-1">
-            <Button variant="outline" size="sm" onClick={()=>{
-              const base = new Date(); base.setDate(base.getDate()+1);
-              const v = new Date(base.getTime()-base.getTimezoneOffset()*60000).toISOString().slice(0,16);
-              setDiscountForm((d: { item_id:string; discount_percent:string; discount_ends_at:string; })=>({...d, discount_ends_at: v}));
-            }}>+1d</Button>
-            <Button variant="outline" size="sm" onClick={()=>{
-              const base = new Date(); base.setDate(base.getDate()+3);
-              const v = new Date(base.getTime()-base.getTimezoneOffset()*60000).toISOString().slice(0,16);
-              setDiscountForm((d: { item_id:string; discount_percent:string; discount_ends_at:string; })=>({...d, discount_ends_at: v}));
-            }}>+3d</Button>
-            <Button variant="outline" size="sm" onClick={()=>{
-              const base = new Date(); base.setDate(base.getDate()+7);
-              const v = new Date(base.getTime()-base.getTimezoneOffset()*60000).toISOString().slice(0,16);
-              setDiscountForm((d: { item_id:string; discount_percent:string; discount_ends_at:string; })=>({...d, discount_ends_at: v}));
-            }}>+7d</Button>
-            <Button variant="outline" size="sm" onClick={()=>{
-              setDiscountForm((d: { item_id:string; discount_percent:string; discount_ends_at:string; })=>({...d, discount_ends_at: ''}));
-            }}>기간해제</Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const base = new Date();
+                base.setDate(base.getDate() + 1);
+                const v = new Date(base.getTime() - base.getTimezoneOffset() * 60000)
+                  .toISOString()
+                  .slice(0, 16);
+                setDiscountForm(
+                  (d: { item_id: string; discount_percent: string; discount_ends_at: string }) => ({
+                    ...d,
+                    discount_ends_at: v,
+                  })
+                );
+              }}
+            >
+              +1d
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const base = new Date();
+                base.setDate(base.getDate() + 3);
+                const v = new Date(base.getTime() - base.getTimezoneOffset() * 60000)
+                  .toISOString()
+                  .slice(0, 16);
+                setDiscountForm(
+                  (d: { item_id: string; discount_percent: string; discount_ends_at: string }) => ({
+                    ...d,
+                    discount_ends_at: v,
+                  })
+                );
+              }}
+            >
+              +3d
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const base = new Date();
+                base.setDate(base.getDate() + 7);
+                const v = new Date(base.getTime() - base.getTimezoneOffset() * 60000)
+                  .toISOString()
+                  .slice(0, 16);
+                setDiscountForm(
+                  (d: { item_id: string; discount_percent: string; discount_ends_at: string }) => ({
+                    ...d,
+                    discount_ends_at: v,
+                  })
+                );
+              }}
+            >
+              +7d
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setDiscountForm(
+                  (d: { item_id: string; discount_percent: string; discount_ends_at: string }) => ({
+                    ...d,
+                    discount_ends_at: '',
+                  })
+                );
+              }}
+            >
+              기간해제
+            </Button>
           </div>
         </div>
         <div className="flex gap-2">
           <Button
             disabled={busy}
-            onClick={async ()=>{
+            onClick={async () => {
               const id = parseInt(discountForm.item_id || '');
               const dp = parseInt(discountForm.discount_percent || '');
-              if (!Number.isFinite(id) || !Number.isFinite(dp)) { onAddNotification('⚠️ 형식 오류'); return; }
+              if (!Number.isFinite(id) || !Number.isFinite(dp)) {
+                onAddNotification('⚠️ 형식 오류');
+                return;
+              }
               // 미래 시각 유효성(선택 시)
               if (discountForm.discount_ends_at) {
                 const local = new Date(discountForm.discount_ends_at);
@@ -1134,55 +1296,90 @@ function ShopCrudPanel({
               }
               setBusy(true);
               try {
-                const body:any = { discount_percent: dp };
+                const body: any = { discount_percent: dp };
                 if (discountForm.discount_ends_at) {
                   const iso = new Date(discountForm.discount_ends_at);
                   body.discount_ends_at = iso.toISOString();
                 }
-                const res = await apiCall(`admin/shop/items/${id}/discount`, { method: 'PATCH', body });
+                const res = await apiCall(`admin/shop/items/${id}/discount`, {
+                  method: 'PATCH',
+                  body,
+                });
                 onAddNotification('✅ 할인 설정 완료');
                 dispatchInvalidate();
                 await onReload();
-                setLastResult({ action:'discount', item_id:id, changed:['discount_percent','discount_ends_at'], at: Date.now() });
-              } catch(e:any){
-                onAddNotification(`❌ 할인 설정 실패: ${e?.message||'error'}`);
-              } finally { setBusy(false); }
+                setLastResult({
+                  action: 'discount',
+                  item_id: id,
+                  changed: ['discount_percent', 'discount_ends_at'],
+                  at: Date.now(),
+                });
+              } catch (e: any) {
+                onAddNotification(`❌ 할인 설정 실패: ${e?.message || 'error'}`);
+              } finally {
+                setBusy(false);
+              }
             }}
             className="bg-primary btn-hover-lift"
-          >적용</Button>
+          >
+            적용
+          </Button>
         </div>
       </div>
 
       <div className="glass-metal rounded-2xl p-6 space-y-3">
-        <div className="text-sm text-neutral-300">노출 등급 설정 (PATCH admin/shop/items/{'{id}'}/rank)</div>
+        <div className="text-sm text-neutral-300">
+          노출 등급 설정 (PATCH admin/shop/items/{'{id}'}/rank)
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-          <input className="px-3 py-2 bg-black/40 border rounded" placeholder="item_id" value={rankForm.item_id}
-            onChange={(e:any)=>setRankForm({...rankForm, item_id: e.target.value})} />
-          <input className="px-3 py-2 bg-black/40 border rounded" placeholder="min_rank (예: VIP1 | 비우면 해제)" value={rankForm.min_rank}
-            onChange={(e:any)=>setRankForm({...rankForm, min_rank: e.target.value})} />
+          <input
+            className="px-3 py-2 bg-black/40 border rounded"
+            placeholder="item_id"
+            value={rankForm.item_id}
+            onChange={(e: any) => setRankForm({ ...rankForm, item_id: e.target.value })}
+          />
+          <input
+            className="px-3 py-2 bg-black/40 border rounded"
+            placeholder="min_rank (예: VIP1 | 비우면 해제)"
+            value={rankForm.min_rank}
+            onChange={(e: any) => setRankForm({ ...rankForm, min_rank: e.target.value })}
+          />
         </div>
         <div className="flex gap-2">
           <Button
             disabled={busy}
-            onClick={async ()=>{
+            onClick={async () => {
               const id = parseInt(rankForm.item_id || '');
-              if (!Number.isFinite(id)) { onAddNotification('⚠️ 형식 오류'); return; }
+              if (!Number.isFinite(id)) {
+                onAddNotification('⚠️ 형식 오류');
+                return;
+              }
               setBusy(true);
               try {
-                const body:any = {};
-                if (rankForm.min_rank && rankForm.min_rank.trim().length>0) body.min_rank = rankForm.min_rank.trim();
+                const body: any = {};
+                if (rankForm.min_rank && rankForm.min_rank.trim().length > 0)
+                  body.min_rank = rankForm.min_rank.trim();
                 else body.min_rank = null;
                 const res = await apiCall(`admin/shop/items/${id}/rank`, { method: 'PATCH', body });
                 onAddNotification('✅ 등급 설정 완료');
                 dispatchInvalidate();
                 await onReload();
-                setLastResult({ action:'rank', item_id:id, changed:['min_rank'], at: Date.now() });
-              } catch(e:any){
-                onAddNotification(`❌ 등급 설정 실패: ${e?.message||'error'}`);
-              } finally { setBusy(false); }
+                setLastResult({
+                  action: 'rank',
+                  item_id: id,
+                  changed: ['min_rank'],
+                  at: Date.now(),
+                });
+              } catch (e: any) {
+                onAddNotification(`❌ 등급 설정 실패: ${e?.message || 'error'}`);
+              } finally {
+                setBusy(false);
+              }
             }}
             className="bg-info btn-hover-lift"
-          >적용</Button>
+          >
+            적용
+          </Button>
         </div>
       </div>
 
@@ -1203,8 +1400,13 @@ function ShopCrudPanel({
               </tr>
             </thead>
             <tbody>
-              {items.map(it => (
-                <tr key={it.id} className={`border-t border-border-secondary ${lastResult?.item_id===it.id ? 'animate-pulse' : ''}`}>
+              {items.map((it) => (
+                <tr
+                  key={it.id}
+                  className={`border-t border-border-secondary ${
+                    lastResult?.item_id === it.id ? 'animate-pulse' : ''
+                  }`}
+                >
                   <td className="p-2">{it.id}</td>
                   <td className="p-2">{it.sku}</td>
                   <td className="p-2">{it.name}</td>
@@ -1219,7 +1421,9 @@ function ShopCrudPanel({
         </div>
         {lastResult && (
           <div className="mt-3 text-xs text-muted-foreground">
-            마지막 작업: <span className="text-foreground">{lastResult.action}</span> · 대상 아이템: {lastResult.item_id} · 변경: {lastResult.changed?.join(', ')||'-'} · {new Date(lastResult.at).toLocaleString()}
+            마지막 작업: <span className="text-foreground">{lastResult.action}</span> · 대상 아이템:{' '}
+            {lastResult.item_id} · 변경: {lastResult.changed?.join(', ') || '-'} ·{' '}
+            {new Date(lastResult.at).toLocaleString()}
           </div>
         )}
       </div>

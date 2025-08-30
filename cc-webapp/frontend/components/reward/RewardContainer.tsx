@@ -291,29 +291,21 @@ export default function RewardContainer() {
 
   return (
     <div
-      className="min-h-screen w-full"
+      className="min-h-screen w-full text-white font-['Inter','SF_Pro_Display',-apple-system,BlinkMacSystemFont,sans-serif] relative"
       style={{
         background:
           'linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 25%, #0f0f23 50%, #1a1a2e 75%, #0a0a0a 100%)',
-        color: '#ffffff',
-        fontFamily: "'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif",
-        position: 'relative',
       }}
     >
       {/* 프리미엄 배경 오버레이 */}
       <div
+        className="absolute inset-0 pointer-events-none"
         style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
           background: `
           radial-gradient(circle at 20% 20%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
           radial-gradient(circle at 80% 80%, rgba(79, 70, 229, 0.08) 0%, transparent 50%),
           radial-gradient(circle at 40% 60%, rgba(168, 85, 247, 0.05) 0%, transparent 50%)
         `,
-          pointerEvents: 'none',
         }}
       />
 
@@ -361,12 +353,10 @@ export default function RewardContainer() {
           >
             {/* 출석 현황 */}
             <div
-              className="rounded-xl p-4 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-400/30"
+              className="rounded-xl p-4 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-white/20 backdrop-blur-[10px]"
               style={{
                 background:
                   'linear-gradient(145deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.08) 50%, rgba(59,130,246,0.05) 100%)',
-                border: '1px solid rgba(255,255,255,0.2)',
-                backdropFilter: 'blur(10px)',
               }}
             >
               <div className="flex items-center justify-between">
@@ -520,12 +510,10 @@ export default function RewardContainer() {
           >
             {/* 현재 레벨 정보 */}
             <div
-              className="rounded-xl p-4 bg-gradient-to-r from-purple-500/20 to-indigo-500/20 border border-purple-400/30"
+              className="rounded-xl p-4 bg-gradient-to-r from-purple-500/20 to-indigo-500/20 border border-white/20 backdrop-blur-[10px]"
               style={{
                 background:
                   'linear-gradient(145deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.08) 50%, rgba(139,92,246,0.05) 100%)',
-                border: '1px solid rgba(255,255,255,0.2)',
-                backdropFilter: 'blur(10px)',
               }}
             >
               <div className="flex items-center justify-between mb-3">
@@ -705,25 +693,27 @@ interface UserLevel {
 }
 
 function RewardDashboard({ userLevel }: { userLevel: UserLevel }) {
-  const progressPercentage = ((userLevel.currentPoints) / (userLevel.currentPoints + userLevel.pointsToNext)) * 100;
+  const progressPercentage =
+    (userLevel.currentPoints / (userLevel.currentPoints + userLevel.pointsToNext)) * 100;
 
   return (
     <motion.div
       className="relative"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, ease: "easeOut" }}
+      transition={{ duration: 0.6, ease: 'easeOut' }}
     >
-      <div className="relative p-6 rounded-2xl backdrop-blur-xl border overflow-hidden
+      <div
+        className="relative p-6 rounded-2xl backdrop-blur-xl border overflow-hidden
                       bg-gradient-to-br from-purple-900/30 to-purple-800/40 border-purple-600/50
-                      shadow-[0_8px_32px_rgba(0,0,0,0.4)] transform-gpu">
-        
+                      shadow-[0_8px_32px_rgba(0,0,0,0.4)] transform-gpu"
+      >
         {/* 강화된 내부 테두리 */}
         <div className="absolute inset-[1px] rounded-2xl border border-purple-400/20 pointer-events-none"></div>
-        
+
         {/* 포인트 효과 */}
         <div className="absolute inset-0 bg-gradient-to-br from-purple-400/10 via-transparent to-black/20 pointer-events-none"></div>
-        
+
         <div className="relative z-10">
           {/* 포인트 잔액 */}
           <div className="text-center mb-6">
@@ -734,9 +724,7 @@ function RewardDashboard({ userLevel }: { userLevel: UserLevel }) {
               </span>
               <span className="text-sm text-purple-300">포인트</span>
             </div>
-            <div className="text-sm text-slate-300">
-              사용 가능한 포인트
-            </div>
+            <div className="text-sm text-slate-300">사용 가능한 포인트</div>
           </div>
 
           {/* 레벨 정보 */}
@@ -744,13 +732,9 @@ function RewardDashboard({ userLevel }: { userLevel: UserLevel }) {
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <Award className="w-5 h-5 text-amber-400" />
-                <span className="text-lg font-bold text-white">
-                  레벨 {userLevel.currentLevel}
-                </span>
+                <span className="text-lg font-bold text-white">레벨 {userLevel.currentLevel}</span>
               </div>
-              <div className="text-amber-300 text-sm font-medium">
-                {userLevel.levelName}
-              </div>
+              <div className="text-amber-300 text-sm font-medium">{userLevel.levelName}</div>
             </div>
 
             {/* 진행률 바 */}
@@ -779,11 +763,11 @@ function RewardDashboard({ userLevel }: { userLevel: UserLevel }) {
   );
 }
 
-function RewardItemCard({ 
-  item, 
-  onExchange 
-}: { 
-  item: RewardItem; 
+function RewardItemCard({
+  item,
+  onExchange,
+}: {
+  item: RewardItem;
   onExchange: (itemId: string) => void;
 }) {
   const handleExchange = () => {
@@ -794,11 +778,16 @@ function RewardItemCard({
 
   const getRarityColor = (rarity: string) => {
     switch (rarity) {
-      case 'COMMON': return 'border-gray-500/50 bg-gray-900/20';
-      case 'RARE': return 'border-blue-500/50 bg-blue-900/20';
-      case 'EPIC': return 'border-purple-500/50 bg-purple-900/20';
-      case 'LEGENDARY': return 'border-amber-500/50 bg-amber-900/20';
-      default: return 'border-gray-500/50 bg-gray-900/20';
+      case 'COMMON':
+        return 'border-gray-500/50 bg-gray-900/20';
+      case 'RARE':
+        return 'border-blue-500/50 bg-blue-900/20';
+      case 'EPIC':
+        return 'border-purple-500/50 bg-purple-900/20';
+      case 'LEGENDARY':
+        return 'border-amber-500/50 bg-amber-900/20';
+      default:
+        return 'border-gray-500/50 bg-gray-900/20';
     }
   };
 
@@ -810,38 +799,50 @@ function RewardItemCard({
       onClick={handleExchange}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, ease: "easeOut" }}
+      transition={{ duration: 0.6, ease: 'easeOut' }}
     >
-      <div className={`relative h-[280px] p-4 rounded-2xl backdrop-blur-xl border overflow-hidden
+      <div
+        className={`relative h-[280px] p-4 rounded-2xl backdrop-blur-xl border overflow-hidden
                       bg-gradient-to-br from-slate-800/95 to-slate-900/90 border-slate-600/50
                       shadow-[0_8px_32px_rgba(0,0,0,0.4)] hover:shadow-[0_16px_48px_rgba(0,0,0,0.5)] 
                       transition-all duration-500 
                       hover:bg-opacity-100 flex flex-col justify-between
-                      transform-gpu ${getRarityColor(item.rarity)}`}>
-        
+                      transform-gpu ${getRarityColor(item.rarity)}`}
+      >
         {/* 강화된 내부 테두리 */}
         <div className="absolute inset-[1px] rounded-2xl border border-white/10 pointer-events-none"></div>
-        
+
         {/* 아이템별 포인트 컬러 효과 */}
-        <div className={`absolute inset-0 bg-gradient-to-br from-${item.accent}/10 via-transparent to-black/20 pointer-events-none`}></div>
-        <div className={`absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-${item.accent}/15 to-transparent rounded-full blur-2xl`}></div>
-        
+        <div
+          className={`absolute inset-0 bg-gradient-to-br from-${item.accent}/10 via-transparent to-black/20 pointer-events-none`}
+        ></div>
+        <div
+          className={`absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-${item.accent}/15 to-transparent rounded-full blur-2xl`}
+        ></div>
+
         {/* 상단 컨텐츠 */}
         <div className="relative z-10">
           {/* 등급 표시 */}
           <div className="absolute top-0 right-0 z-20">
-            <div className={`px-2 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider
-                            ${item.rarity === 'LEGENDARY' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50' :
-                              item.rarity === 'EPIC' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/50' :
-                              item.rarity === 'RARE' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/50' :
-                              'bg-gray-500/20 text-gray-300 border border-gray-500/50'}`}>
+            <div
+              className={`px-2 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider
+                            ${
+                              item.rarity === 'LEGENDARY'
+                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50'
+                                : item.rarity === 'EPIC'
+                                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/50'
+                                : item.rarity === 'RARE'
+                                ? 'bg-blue-500/20 text-blue-300 border border-blue-500/50'
+                                : 'bg-gray-500/20 text-gray-300 border border-gray-500/50'
+                            }`}
+            >
               {item.rarity}
             </div>
           </div>
 
           {/* 아이콘 */}
           <div className="mb-4 mt-2">
-            <motion.div 
+            <motion.div
               className="w-12 h-12 mx-auto rounded-xl 
                         bg-gradient-to-br from-slate-600/70 to-slate-700/90 
                         flex items-center justify-center border border-slate-500/50
@@ -856,18 +857,10 @@ function RewardItemCard({
 
           {/* 제목과 설명 */}
           <div className="text-center mb-4">
-            <motion.h3 
-              className="text-base font-black text-white mb-2 leading-tight"
-              style={{ 
-                textShadow: '0 2px 8px rgba(0,0,0,0.8), 0 4px 16px rgba(0,0,0,0.6)' 
-              }}
-            >
+            <motion.h3 className="text-base font-black text-white mb-2 leading-tight drop-shadow-lg">
               {item.name}
             </motion.h3>
-            <p className="text-xs text-slate-100 leading-relaxed px-1"
-               style={{ 
-                 textShadow: '0 1px 4px rgba(0,0,0,0.6)' 
-               }}>
+            <p className="text-xs text-slate-100 leading-relaxed px-1 drop-shadow-sm">
               {item.description.substring(0, 50)}...
             </p>
           </div>
@@ -896,15 +889,19 @@ function RewardItemCard({
                        flex items-center justify-center gap-2 
                        shadow-lg hover:shadow-xl backdrop-blur-sm
                        text-white font-bold relative overflow-hidden
-                       ${item.isAvailable 
-                         ? 'bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 border-purple-500/70 hover:border-purple-400/80' 
-                         : 'bg-gradient-to-r from-slate-600 to-slate-700 border-slate-500/70 cursor-not-allowed'}`}
+                       ${
+                         item.isAvailable
+                           ? 'bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 border-purple-500/70 hover:border-purple-400/80'
+                           : 'bg-gradient-to-r from-slate-600 to-slate-700 border-slate-500/70 cursor-not-allowed'
+                       }`}
             whileHover={item.isAvailable ? { scale: 1.02 } : {}}
             whileTap={item.isAvailable ? { scale: 0.98 } : {}}
           >
             {item.isAvailable && (
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent 
-                              skew-x-12 translate-x-full group-hover:translate-x-[-200%] transition-transform duration-1000"></div>
+              <div
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent 
+                              skew-x-12 translate-x-full group-hover:translate-x-[-200%] transition-transform duration-1000"
+              ></div>
             )}
             <ShoppingCart className="w-4 h-4 text-white relative z-10 drop-shadow" />
             <span className="text-white relative z-10 drop-shadow">

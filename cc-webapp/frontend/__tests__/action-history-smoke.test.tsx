@@ -4,6 +4,7 @@ import type {} from 'jest';
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { RealtimeSyncProvider } from '@/contexts/RealtimeSyncContext';
 import ActionHistory from '@/components/profile/ActionHistory';
 import { GlobalStoreProvider } from '@/store/globalStore';
 
@@ -50,7 +51,9 @@ describe('ActionHistory - UI 스모크', () => {
   it('최근 활동 리스트와 더 보기 버튼', async () => {
     render(
       <WithStore>
-        <ActionHistory />
+        <RealtimeSyncProvider>
+          <ActionHistory />
+        </RealtimeSyncProvider>
       </WithStore>
     );
 
