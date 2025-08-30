@@ -404,7 +404,7 @@ app.include_router(metrics.router)  # Global metrics endpoint
 
 # Events/Missions (ENABLED - required for container environment)
 app.include_router(events.router)
-# app.include_router(kafka_api.router)
+app.include_router(kafka_api.router)
 
 # Realtime sync (ENABLED)
 app.include_router(realtime.router)

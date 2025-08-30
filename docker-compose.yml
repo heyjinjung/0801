@@ -167,8 +167,8 @@ services:
   clickhouse:
     image: clickhouse/clickhouse-server:23.8
     container_name: cc_clickhouse
-    ports:
-      - "8123:8123"
+  # Note: Host port exposure is managed via override files (e.g., docker-compose.override.local.yml)
+  # to avoid collisions on developer machines. Internal services use http://clickhouse:8123.
     environment:
       CLICKHOUSE_DB: ${CLICKHOUSE_DATABASE:-cc_olap}
       CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
@@ -186,6 +186,8 @@ services:
           - clickhouse
 
   olap_worker:
+    profiles:
+      - olap
     build:
       context: ./cc-webapp/backend
       dockerfile: Dockerfile

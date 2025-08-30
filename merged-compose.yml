@@ -1,0 +1,347 @@
+name: "0801"
+services:
+  backend:
+    build:
+      context: C:\Users\bdbd\005\0801\cc-webapp\backend
+      dockerfile: Dockerfile
+    container_name: cc_backend
+    depends_on:
+      kafka:
+        condition: service_started
+        required: true
+      postgres:
+        condition: service_started
+        required: true
+      redis:
+        condition: service_started
+        required: true
+    entrypoint:
+      - /bin/sh
+      - -c
+      - chmod +x /app/entrypoint.sh; sed -i 's/\r$$//' /app/entrypoint.sh; /bin/sh /app/entrypoint.sh
+    environment:
+      AUTO_SEED_BASIC: "1"
+      CLICKHOUSE_DATABASE: cc_olap
+      CLICKHOUSE_ENABLED: "0"
+      CLICKHOUSE_PASSWORD: ""
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_USER: default
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,https://localhost:3000,https://127.0.0.1:3000,http://localhost:40001,http://127.0.0.1:40001
+      ENABLE_LEGACY_GAMES_WS: "0"
+      ENFORCE_DB_INVITE_CODES: "0"
+      JWT_SECRET_KEY: secret_key_for_development_only
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_ENABLED: "0"
+      OLAP_BATCH_SIZE: "200"
+      OLAP_FLUSH_SECONDS: "2"
+      PAYMENT_WEBHOOK_SECRET: dev-webhook-secret
+      POSTGRES_DB: cc_webapp
+      POSTGRES_PASSWORD: cc_password
+      POSTGRES_SERVER: postgres
+      POSTGRES_USER: cc_user
+      PYTHONPATH: /app
+      REDIS_HOST: redis
+      REDIS_PASSWORD: redis_password
+      REDIS_PORT: "6379"
+      UNLIMITED_INVITE_CODE: "5858"
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -f
+        - http://localhost:8000/health
+      timeout: 5s
+      interval: 15s
+      retries: 5
+    networks:
+      ccnet:
+        aliases:
+          - backend
+    ports:
+      - mode: ingress
+        target: 8000
+        published: "8000"
+        protocol: tcp
+      - mode: ingress
+        target: 8000
+        published: "8001"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: C:\Users\bdbd\005\0801\cc-webapp\backend
+        target: /app
+        bind:
+          create_host_path: true
+      - type: bind
+        source: C:\Users\bdbd\005\0801\logs\backend
+        target: /app/logs
+        bind:
+          create_host_path: true
+  clickhouse:
+    container_name: cc_clickhouse
+    environment:
+      CLICKHOUSE_DB: cc_olap
+      CLICKHOUSE_PASSWORD: ""
+      CLICKHOUSE_USER: default
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --spider
+        - -q
+        - http://localhost:8123/ping
+      timeout: 5s
+      interval: 10s
+      retries: 20
+    image: clickhouse/clickhouse-server:23.8
+    networks:
+      ccnet:
+        aliases:
+          - clickhouse
+    ports:
+      - mode: ingress
+        target: 8123
+        published: "8123"
+        protocol: tcp
+      - mode: ingress
+        target: 8123
+        published: "8124"
+        protocol: tcp
+    volumes:
+      - type: volume
+        source: clickhouse_data
+        target: /var/lib/clickhouse
+        volume: {}
+  frontend:
+    build:
+      context: C:\Users\bdbd\005\0801\cc-webapp\frontend
+      dockerfile: Dockerfile.dev
+    command:
+      - /usr/local/bin/start-dev
+    container_name: cc_frontend
+    depends_on:
+      backend:
+        condition: service_started
+        required: true
+    deploy:
+      resources:
+        limits:
+          memory: "4294967296"
+        reservations:
+          memory: "2147483648"
+    environment:
+      NEXT_DISABLE_WEBPACK_CACHE: "1"
+      NEXT_PUBLIC_API_ORIGIN: http://localhost:8000
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NEXT_PUBLIC_API_URL_INTERNAL: http://backend:8000
+      NEXT_PUBLIC_BUILD_ID: dev
+      NEXT_TELEMETRY_DISABLED: "1"
+      NODE_OPTIONS: --max-old-space-size=2048
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - node -e "require('http').get('http://localhost:3000',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+      timeout: 5s
+      interval: 20s
+      retries: 5
+      start_period: 45s
+    networks:
+      ccnet:
+        aliases:
+          - frontend
+    ports:
+      - mode: ingress
+        target: 3000
+        published: "3000"
+        protocol: tcp
+      - mode: ingress
+        target: 3000
+        published: "3001"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: C:\Users\bdbd\005\0801\cc-webapp\frontend
+        target: /app
+        bind:
+          create_host_path: true
+      - type: bind
+        source: C:\Users\bdbd\005\0801\logs\frontend
+        target: /app/logs
+        bind:
+          create_host_path: true
+      - type: volume
+        source: frontend_node_modules
+        target: /app/node_modules
+        volume: {}
+  kafka:
+    container_name: cc_kafka
+    depends_on:
+      zookeeper:
+        condition: service_started
+        required: true
+    environment:
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092
+      KAFKA_CFG_ZOOKEEPER_CONNECT: zookeeper:2181
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1 || exit 1
+      timeout: 10s
+      interval: 15s
+      retries: 10
+    image: bitnami/kafka:3.6
+    networks:
+      ccnet:
+        aliases:
+          - kafka
+    ports:
+      - mode: ingress
+        target: 9092
+        published: "9092"
+        protocol: tcp
+    restart: unless-stopped
+  mailpit:
+    container_name: cc_mailpit
+    image: axllent/mailpit:latest
+    networks:
+      ccnet:
+        aliases:
+          - mailpit
+    ports:
+      - mode: ingress
+        target: 8025
+        published: "8025"
+        protocol: tcp
+      - mode: ingress
+        target: 1025
+        published: "1025"
+        protocol: tcp
+    restart: unless-stopped
+  olap_worker:
+    build:
+      context: C:\Users\bdbd\005\0801\cc-webapp\backend
+      dockerfile: Dockerfile
+    container_name: cc_olap_worker
+    depends_on:
+      clickhouse:
+        condition: service_started
+        required: true
+      kafka:
+        condition: service_started
+        required: true
+      postgres:
+        condition: service_started
+        required: true
+    entrypoint:
+      - python
+      - -m
+      - app.consumers.olap_worker
+    environment:
+      CLICKHOUSE_DATABASE: cc_olap
+      CLICKHOUSE_ENABLED: "0"
+      CLICKHOUSE_PASSWORD: ""
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_USER: default
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_ENABLED: "0"
+      OLAP_BATCH_SIZE: "200"
+      OLAP_FLUSH_SECONDS: "2"
+      POSTGRES_DB: cc_webapp
+      POSTGRES_PASSWORD: cc_password
+      POSTGRES_SERVER: postgres
+      POSTGRES_USER: cc_user
+    networks:
+      ccnet:
+        aliases:
+          - olap_worker
+    restart: unless-stopped
+  postgres:
+    container_name: cc_postgres
+    environment:
+      POSTGRES_DB: cc_webapp
+      POSTGRES_PASSWORD: cc_password
+      POSTGRES_USER: cc_user
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U cc_user -d cc_webapp
+      timeout: 5s
+      interval: 10s
+      retries: 5
+    image: postgres:14
+    networks:
+      ccnet:
+        aliases:
+          - postgres
+    ports:
+      - mode: ingress
+        target: 5432
+        published: "15432"
+        protocol: tcp
+      - mode: ingress
+        target: 5432
+        published: "5433"
+        protocol: tcp
+    volumes:
+      - type: bind
+        source: C:\Users\bdbd\005\0801\data\postgres
+        target: /var/lib/postgresql/data
+        bind:
+          create_host_path: true
+      - type: bind
+        source: C:\Users\bdbd\005\0801\logs\postgres
+        target: /var/log/postgresql
+        bind:
+          create_host_path: true
+      - type: bind
+        source: C:\Users\bdbd\005\0801\data\init
+        target: /docker-entrypoint-initdb.d
+        read_only: true
+        bind:
+          create_host_path: true
+  redis:
+    command:
+      - redis-server
+      - --requirepass
+      - redis_password
+    container_name: cc_redis
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - -a
+        - redis_password
+        - PING
+      timeout: 5s
+      interval: 10s
+      retries: 5
+    image: redis:7
+    networks:
+      ccnet:
+        aliases:
+          - redis
+    restart: unless-stopped
+  zookeeper:
+    container_name: cc_zookeeper
+    environment:
+      ALLOW_ANONYMOUS_LOGIN: "yes"
+    image: bitnami/zookeeper:3.8
+    networks:
+      ccnet:
+        aliases:
+          - zookeeper
+networks:
+  ccnet:
+    name: ccnet
+    external: true
+volumes:
+  clickhouse_data:
+    name: 0801_clickhouse_data
+  frontend_node_modules:
+    name: 0801_frontend_node_modules
+

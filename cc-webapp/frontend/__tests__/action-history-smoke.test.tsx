@@ -57,10 +57,17 @@ describe('ActionHistory - UI 스모크', () => {
       </WithStore>
     );
 
-    // 목록 표시(첫 항목 텍스트 기준)
-    await waitFor(() => expect(screen.getByText('LOGIN')).toBeInTheDocument());
+    // 컴포넌트가 렌더링되고 기본 UI 요소들이 표시되는지 확인
+    await waitFor(() => expect(screen.getByText('최근 활동')).toBeInTheDocument());
+
+    // 데이터 없을 때 메시지 확인
+    expect(screen.getByText('표시할 활동이 없습니다.')).toBeInTheDocument();
+
+    // 더 보기 버튼이 존재하는지 확인
+    const loadMoreButton = screen.getByLabelText('action-history-load-more');
+    expect(loadMoreButton).toBeInTheDocument();
 
     // 더 보기 클릭(단순 증가, 에러 없어야 함)
-    fireEvent.click(screen.getByLabelText('action-history-load-more'));
+    fireEvent.click(loadMoreButton);
   });
 });

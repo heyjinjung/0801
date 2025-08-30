@@ -2,14 +2,15 @@
 import '@testing-library/jest-dom';
 
 // Mock IntersectionObserver for Jest environment
-global.IntersectionObserver = class IntersectionObserver {
-  constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {
-    this.callback = callback;
-    this.options = options;
-  }
+class MockIntersectionObserver implements IntersectionObserver {
+  constructor(
+    public callback: IntersectionObserverCallback,
+    public options?: IntersectionObserverInit
+  ) { }
   
-  private callback: IntersectionObserverCallback;
-  private options?: IntersectionObserverInit;
+  root: Element | Document | null = null;
+  rootMargin = '';
+  thresholds: ReadonlyArray<number> = [];
   
   observe() {
     // Mock implementation - do nothing
@@ -22,11 +23,57 @@ global.IntersectionObserver = class IntersectionObserver {
   disconnect() {
     // Mock implementation - do nothing
   }
-};
+
+  takeRecords(): IntersectionObserverEntry[] {
+    return [];
+  }
+}
+
+// Mock MessageChannel for server-side rendering tests
+class MockMessageChannel {
+  port1 = {
+    postMessage: () => { },
+    close: () => { },
+    onmessage: null,
+    onmessageerror: null,
+    addEventListener: () => { },
+    removeEventListener: () => { },
+    dispatchEvent: () => false,
+  };
+
+  port2 = {
+    postMessage: () => { },
+    close: () => { },
+    onmessage: null,
+    onmessageerror: null,
+    addEventListener: () => { },
+    removeEventListener: () => { },
+    dispatchEvent: () => false,
+  };
+}
+
+// Assign to global/window object
+Object.defineProperty(window, 'IntersectionObserver', {
+  writable: true,
+  configurable: true,
+  value: MockIntersectionObserver,
+});
+
+Object.defineProperty(global, 'IntersectionObserver', {
+  writable: true,
+  configurable: true,
+  value: MockIntersectionObserver,
+});
+
+Object.defineProperty(global, 'MessageChannel', {
+  writable: true,
+  configurable: true,
+  value: MockMessageChannel,
+});
 
 // Reduce console noise in smoke tests
 const originalError = console.error;
-beforeAll(() => {
+global.beforeAll(() => {
   console.error = (...args: any[]) => {
     const msg = args.join(' ');
     if (msg.includes('Warning:')) return;
@@ -34,6 +81,6 @@ beforeAll(() => {
   };
 });
 
-afterAll(() => {
+global.afterAll(() => {
   console.error = originalError;
 });

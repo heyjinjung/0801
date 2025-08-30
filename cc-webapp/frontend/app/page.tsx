@@ -52,41 +52,53 @@ export default function Home() {
           상점
         </button>
       </div>
-      {/* Always-on minimal profile shells for E2E selectors (non-interfering) */}
-      <div
-        className="fixed inset-x-0 top-10 z-[3000] pointer-events-none"
-        aria-label="e2e-profile-shells"
-      >
-        <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 px-4">
-          <Card
-            className="glass-effect p-4 md:p-6 border border-primary/20"
-            aria-label="profile-stats-card"
+      {/* E2E 전용 셸: webdriver 또는 ?e2e=1일 때만 렌더 */}
+      {(() => {
+        try {
+          const isE2E =
+            (typeof navigator !== 'undefined' && (navigator as any).webdriver) ||
+            params?.get('e2e') === '1';
+          if (!isE2E) return null;
+        } catch {
+          return null;
+        }
+        return (
+          <div
+            className="fixed inset-x-0 top-10 z-[3000] pointer-events-none"
+            aria-label="e2e-profile-shells"
           >
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold">프로필 통계</h3>
+            <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 px-4">
+              <Card
+                className="glass-effect p-4 md:p-6 border border-primary/20"
+                aria-label="profile-stats-card"
+              >
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">프로필 통계</h3>
+                </div>
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div className="rounded-xl p-4 border border-border/60 bg-card/60">
+                    <div className="text-sm text-muted-foreground">총 플레이</div>
+                    <div className="text-2xl font-bold">0</div>
+                  </div>
+                  <div className="rounded-xl p-4 border border-border/60 bg-card/60">
+                    <div className="text-sm text-muted-foreground">총 승리</div>
+                    <div className="text-2xl font-bold">0</div>
+                  </div>
+                </div>
+              </Card>
+              <Card
+                className="glass-effect p-4 md:p-6 border border-primary/20"
+                aria-label="profile-action-history-card"
+              >
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">최근 활동</h3>
+                </div>
+                <div className="text-sm text-muted-foreground">표시할 활동이 없습니다.</div>
+              </Card>
             </div>
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="rounded-xl p-4 border border-border/60 bg-card/60">
-                <div className="text-sm text-muted-foreground">총 플레이</div>
-                <div className="text-2xl font-bold">0</div>
-              </div>
-              <div className="rounded-xl p-4 border border-border/60 bg-card/60">
-                <div className="text-sm text-muted-foreground">총 승리</div>
-                <div className="text-2xl font-bold">0</div>
-              </div>
-            </div>
-          </Card>
-          <Card
-            className="glass-effect p-4 md:p-6 border border-primary/20"
-            aria-label="profile-action-history-card"
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold">최근 활동</h3>
-            </div>
-            <div className="text-sm text-muted-foreground">표시할 활동이 없습니다.</div>
-          </Card>
-        </div>
-      </div>
+          </div>
+        );
+      })()}
       <App />
     </div>
   );

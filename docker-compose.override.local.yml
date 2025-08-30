@@ -12,3 +12,4 @@ services:
   postgres:
     ports:
       - "5433:5432"
+  # ClickHouse: 로컬에서는 외부 포트 노출 불필요. 내부 서비스는 http://clickhouse:8123 사용.

@@ -33,10 +33,9 @@ describe('RewardContainer - 일일 출석 보상 수령 스모크', () => {
       </WithStore>
     );
 
-    // 오늘자(today) 출석 셀을 찾기 어려우므로 텍스트로 유도 클릭
-    // Daily 탭 기본 선택 상태에서 'Day 8' 요소(예제 데이터 today=true)를 클릭
-    const day8 = await screen.findByText(/Day 8/i);
-    fireEvent.click(day8.parentElement!);
+    // data-testid로 정확히 오늘자 카드를 클릭
+    const todayCard = await screen.findByTestId('daily-card-8');
+    fireEvent.click(todayCard);
 
     // 모달 타이틀 확인
     await waitFor(async () => {
